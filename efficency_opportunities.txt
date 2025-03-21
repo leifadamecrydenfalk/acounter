@@ -1,0 +1,166 @@
+﻿1. Automated Financial Alerts
+Effort: Low
+Impact: High
+Description: Implement automated notifications for critical financial metrics, such as cash flow thresholds, to proactively prevent issues.
+Implementation Steps:
+1. Utilize Fortnox's Websocket API:[a]
+   * Set Up Websockets: Fortnox offers a Websocket API that provides real-time updates on various financial events. By connecting to wss://ws.fortnox.se/topics-v1, you can subscribe to topics like invoices or cash flow changes. When specific events occur, such as cash flow dropping below a set threshold, the system can trigger notifications.
+ Fortnox
+   2. Leverage Third-Party Integration Tools:
+   * Zapier Integration: If direct API integration is complex, consider using platforms like Zapier, which can connect Fortnox to various notification services. For instance, you can create a Zap that sends an email or Slack message when a new invoice is added or when cash flow reaches a critical point.
+ Zapier
+Why Prioritize This?
+Automated financial alerts provide immediate awareness of potential issues, enabling swift action and reducing the risk of financial shortfalls.
+________________
+
+
+2. Automated Time Report Validation
+Effort: Low
+Impact: High
+Description: Automate the verification of time entries to ensure accuracy and proper project allocation.
+Implementation Steps:
+      1. Develop Validation Scripts:
+      * Use Fortnox API: Retrieve time report data and cross-reference it with project assignments to identify discrepancies.
+      * Set Up Automated Checks: Implement scripts that run at scheduled intervals to validate entries and flag inconsistencies.
+      2. Integrate with Notification Systems:
+      * Alert Relevant Personnel: When discrepancies are found, automatically send notifications to the responsible individuals for correction.
+Why Prioritize This[b]?
+Ensuring accurate time reporting is crucial for project costing and payroll. Automation reduces manual oversight and errors.
+________________
+
+
+3. Revenue & User Acquisition Data Automation
+Effort: Medium
+Impact: High
+Description: Streamline the collection and processing of revenue and user acquisition data to reduce manual data entry.
+Implementation Steps:
+      1. Integrate Data Sources with Fortnox:
+      * Use Fortnox API: Connect external revenue and user data sources to Fortnox, enabling automatic data import.[c]
+      * Schedule Regular Data Syncs: Set up routines that periodically pull data from various platforms into Fortnox.
+      2. Automate Data Processing:
+      * Implement Data Transformation Scripts: Convert imported data into the required formats for reporting and analysis.
+      * Update Dashboards Automatically: Ensure that financial dashboards reflect the most recent data without manual intervention.
+Why Prioritize This?
+Automating data collection and processing enhances accuracy and frees up time for strategic analysis.
+________________
+
+
+4. Enhanced Project Budgeting & Tracking Automation
+Effort: Medium
+Impact: Medium-High
+Description: Refine and automate budgeting workflows to improve financial tracking and comparison between projected and actual expenses.
+Implementation Steps:
+      1. Develop Advanced Budgeting Templates:[d]
+      * Dynamic Spreadsheets: Create templates with built-in formulas to automatically calculate variances between budgeted and actual figures.
+      * Integration with Fortnox: Use Fortnox API to pull real-time financial data into budgeting templates.
+      2. Implement Regular Automated Reporting:
+      * Scheduled Reports: Set up automated reports that provide insights into budget adherence and highlight areas of concern.
+Why Prioritize This?
+Improved budgeting processes lead to better financial control and resource allocation.
+________________
+
+
+5. Centralized Financial Data Repository
+Effort: Medium-High
+Impact: High
+Description: Create a centralized repository for financial data to facilitate dynamic reporting and reduce manual compilation efforts.
+Implementation Steps:
+      1. Establish a Data Warehouse:
+      * Select a Platform: Choose a solution like Google BigQuery or an SQL database to store consolidated financial data.
+      * Integrate Fortnox Data: Use Fortnox API to regularly import data into the centralized repository.
+      2. Develop Dynamic Reporting Tools:
+      * Use BI Tools: Implement tools like Google Data Studio or Power BI to create interactive dashboards and reports.
+      * Set Up User Access: Ensure relevant stakeholders have access to the reports they need.
+Why Prioritize This?[e]
+A centralized data repository streamlines reporting processes and enhances data-driven decision-making.
+________________
+
+
+6. Comprehensive Time Reporting Automation
+Effort: High
+Impact: High
+Description: Fully automate time reporting processes, including validation and reconciliation, to minimize manual intervention.[f]
+Implementation Steps:
+      1. Implement an Integrated Time Tracking System:
+      * Select Compatible Software: Choose a time tracking tool that integrates seamlessly with Fortnox.
+      * Automate Data Syncing: Ensure time entries are automatically synced with project and payroll data in Fortnox.
+      2. Develop Advanced Validation Rules:
+      * Customize Validation Criteria: Set up rules that automatically flag discrepancies or unusual entries.
+      * Automate Correction Workflows: Create processes that notify employees or managers of issues for prompt resolution.
+Why Prioritize This?
+Comprehensive automation of time reporting enhances accuracy, reduces administrative overhead, and ensures compliance with project budgets.
+________________
+Ideas above adjusted to opportunity briefs via the Turbo SmoothOps:
+
+
+      1. Opportunity Brief
+Opportunity Title: Automated Financial Alerts
+Requester: Ida
+Description:
+Currently, tracking financial metrics requires manual spreadsheet updates, pulling data from multiple sources such as our bank account, Fortnox, and ad networks. This process is time-consuming and reactive, leaving little room for proactive financial management. Automating financial alerts would allow the team to respond swiftly to potential cash flow issues by receiving notifications when key financial thresholds are met or exceeded.
+Current Workflow:
+      1. Manually collect financial data from various sources (bank, Fortnox, ad networks).
+      2. Update spreadsheets with the latest figures.
+      3. Review spreadsheets periodically to check for potential issues.
+      4. No proactive alerts—issues are only identified when manually reviewed.
+Ideal Outcome:
+      * Automated notifications are sent when financial thresholds are met or exceeded.
+      * Alerts can be configured for different timeframes (daily, weekly, monthly).
+      * Different users receive relevant alerts based on their role.
+      * Slack is used as the primary notification channel, with email as a potential alternative.
+      * Thresholds are manually configurable to adjust as needed.
+Why This Matters:
+      * Saves time by eliminating the need for manual spreadsheet reviews.
+      * Enables a proactive approach to financial management.
+      * Reduces the risk of financial shortfalls by ensuring timely awareness of issues.
+      * Improves overall efficiency and decision-making.
+Any Relevant URLs:
+      * Fortnox Websocket API: [Insert URL]
+      * Zapier Integration (if applicable): [Insert URL]
+Additional Notes:
+      * Initially, thresholds will need to be manually set but could be refined over time.
+      * Slack is the preferred notification method, but flexibility is available if needed.
+
+
+
+
+2. Opportunity Brief
+Opportunity Title: Automated Time Report Validation
+Requester: Ida
+Description:
+Currently, time report validation is done manually at the end of each month. While larger errors, such as missing entire workdays, are easy to spot, smaller issues like missing project numbers can be overlooked. This manual process is time-consuming and requires significant effort to identify and correct errors. By automating time report validation, errors can be detected early, improving accuracy and reducing the need for manual intervention.
+Current Workflow:
+      1. Employees log time manually into the system.
+      2. At the end of each month, time reports are reviewed manually to identify discrepancies.
+      3. Larger errors (e.g., missing workdays) are easier to find, while smaller issues (e.g., missing project numbers) require more effort.
+      4. Corrections are made manually, and employees may need to be reminded to fix their reports.
+Ideal Outcome:
+      * Automated daily checks on time reports to catch errors as soon as they occur.
+      * Employees receive instant Slack notifications if their entries contain errors.
+      * Automated reminders for employees to log their time at chosen intervals (e.g., weekly).
+      * Eliminates the need for manual monthly reviews while improving accuracy.
+      * Ensures time reporting remains fresh in employees' minds, leading to better data quality.
+Why This Matters:
+      * Saves time by reducing manual error-checking and follow-ups.
+      * Improves the accuracy of project allocation and financial planning.
+      * Creates a smoother, more efficient time-reporting process.
+Any Relevant URLs:
+      * Fortnox API Documentation: [Insert URL]
+      * Slack Integration Guide: [Insert URL]
+Additional Notes:
+      * The system should fully replace manual validation instead of just complementing it.
+      * Automated reminders will encourage more consistent and timely reporting.
+
+
+[a]I'd love to use Fortnox this way, but it won't solve the issue, I think. The information we have in Fortnox only predicts some of the cashflow, like rent or UA invoices we pay and the invoices we issue, and usually limited to the following 30 days, tops. Other kind of cashflow, like things we pay for by credit card and the majority of our revenue like Apple and Applovin payments, will not show until it actually has happened, giving us no room for proactiveness. However, the spreadsheets I mentioned yesterday would be a better source for this, allowing predictions for much longer periods of time. 
+Would be great if values below/over our set thresholds would generate an email or Slack message!
+[b]I'd love if we were able to achieve this, I like the entire setup! On my list it would have a bit lower priority though, perhaps impact medium, and move it down a bit in the priorities, perhaps to place no 4. It will affect project allocation and reduce manual work, but payroll isn't really affected by this (in the sense project allocation won't change anyone's salary however faulty, but our payroll administrator Malin too needs to make corrections sometimes due to this). The errors I usually find when checking this is overall in the entire company usually within the allowed margin of error - to get everything absolutely right/fair in time reporting is almost impossible and could be a far bigger pain for everyone than it is now, so some faulty registrations is ok. On the other hand - with this setup it would be much easier to improve accuracy.
+[c]Hm, the process today is: 1) I log on to each network and note the sums manually in a Google spreadsheet (our revenue and cashflow forecast uses this information). 2) In another spreadsheet, a local Excel file, I need to check how much of our revenue has actually been paid this month. (We book our revenue for eg. February on February, but the actual payments will come through 15 ish different transactions mid March through mid June, and I need to track all payments and make sure our booked receivables are correct). 3) When this is done, I make the actual booking in Fortnox.
+My initial thoughts were that the spreadsheet would automatically get the data from each network, skipping step 1, but this would skip all 3 steps. It is possible that this is an even easier and better solution, but I want to understand what is happening, how I can make the controls in step 2 before we implement this. We would also need the information in the spredsheet too, for cashflow projecting purposes.
+[d]The first bullet point is already done (could surly be improved, but we have a start). The Fortnox integration would be great - I do this step manually now by collecting data files and feeding them to the spreadsheets.
+Love the idea of scheduled reports. Would it be possible to initiate them when I decide to, or possibly when some sort of action has happened in our Fortnox data for that month?
+I would lower impact slightly to Medium or Low-Medium. I'm producing this info today, but this would mean we could do it faster and with more accuracy.
+[e]This sounds great! I have no conception if this is a big or a small task, but I'm thinking quite big? And I guess there are more questions surrounding this, like data security. It'd be great for me, but I'm wondering if it is a tall order that could take more time to do than to save.
+Impact would probably be high at times when we are looking into collabs and things like that, when they are asking for data, but other periods would be low use of this and low impact. So average: Medium?
+[f]I don't remember talking about this - is this a new idea or from something we talked about? I interpret the integrated time tracker as sort of a separate timer that everyone can start and stop to add time entries (both to get the total work time right and to get the project separation right) - is this what you mean? Fortnox has this function, at least on their webpage but I don't think it works as a separate widget, in case we would want it to be visible at all times. I've also tried similar tools in the past and it didn't work out either for me or my colleagues at the time as we kept forgetting to turn on/off when switching tasks, going for lunch, going home etc - but that's only a handful of people I'm referring to, and I'm sure it works better for others. We could ask the staff if they think they'd like it?
+I like the validation rules that flags discrepancies and alert the employees! This could perhaps be integrated to opportunity 2?

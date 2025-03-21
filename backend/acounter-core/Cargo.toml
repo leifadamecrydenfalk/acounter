@@ -1,0 +1,66 @@
+[package]
+name = "acounter-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A flexible alert system with multiple notification channels"
+repository = "https://github.com/yourusername/alert-system"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.33.0", features = ["full", "macros", "rt-multi-thread"] }
+
+# Web framework and HTTP
+axum = { version = "0.7.9", features = ["macros"] }
+tower = "0.4.13"
+tower-http = { version = "0.5.0", features = ["trace"] }
+
+# Authentication and security
+jsonwebtoken = "9.1.0"
+governor = "0.6.0"
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid", "json"] }
+uuid = { version = "1.5", features = ["v4", "serde"] }
+
+# Serialization
+serde = { version = "1.0.192", features = ["derive"] }
+serde_json = "1.0.108"
+
+# Logging and tracing
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+
+# Email
+lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder"] }
+
+# HTTP client
+reqwest = { version = "0.11.22", features = ["json", "rustls-tls"] }
+
+# Date and time
+chrono = { version = "0.4.31", features = ["serde"] }
+
+# Configuration and utilities
+dotenv = "0.15.0"
+envy = "0.4.2"
+thiserror = "1.0.50"
+async-trait = "0.1.74"
+
+[dev-dependencies]
+# Testing utilities
+tokio-test = "0.4.3"
+mockall = "0.11.4"
+wiremock = "0.5.19"
+
+[profile.release]
+# Optimization settings
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+
+[profile.dev]
+# Developer experience improvements
+opt-level = 0
+debug = true

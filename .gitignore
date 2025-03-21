@@ -1,0 +1,12 @@
+# Ignore all target directories anywhere in the project
+**/target/
+
+# Ignore Cargo.lock for library crates (uncomment if you're building a library)
+# Cargo.lock
+
+# Ignore any .cargo/config files (which might contain local-specific settings)
+**/.cargo/config
+**/.cargo/config.toml
+
+# Ignore any .rustfmt backups anywhere
+**/*.rs.bk
