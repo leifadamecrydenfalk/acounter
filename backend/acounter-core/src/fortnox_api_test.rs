@@ -3,47 +3,49 @@ use axum::{
     response::{Html, IntoResponse, Redirect},
     routing::get,
     Router,
-};
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{Client, Method, RequestBuilder};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{
+ };
+ use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
+ use rand::{distributions::Alphanumeric, thread_rng, Rng};
+ use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
+ use reqwest::{Client, Method, RequestBuilder};
+ use serde::{de::DeserializeOwned, Deserialize, Serialize};
+ use std::{
     env,
     fs::{self, File}, // Added File
-    io::Write,        // Added Write
+    io::{BufReader, Write}, // Added BufReader, Write
     net::SocketAddr,
-    path::Path,       // Added Path
+    path::{Path, PathBuf}, // Added PathBuf, Path
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH}, // Added time components
-};
-use axum::http::StatusCode as AxumStatusCode;
-use thiserror::Error;
-use tokio::sync::Mutex;
-use tokio::time::sleep; // For example task delay
-use tracing::{error, info, warn, Level}; // Added warn
-use tracing_subscriber::FmtSubscriber;
-use url::Url;
+ };
+ use axum::http::StatusCode as AxumStatusCode;
+ use thiserror::Error;
+ use tokio::sync::Mutex;
+ use tokio::time::sleep; // For example task delay
+ use tracing::{error, info, warn, Level}; // Added warn
+ use tracing_subscriber::FmtSubscriber;
+ use url::Url;
 
-// --- Configuration & Constants ---
+ use axum_server::tls_rustls::RustlsConfig;
 
-const FORTNOX_AUTH_URL: &str = "https://apps.fortnox.se/oauth-v1/auth";
-const FORTNOX_TOKEN_URL: &str = "https://apps.fortnox.se/oauth-v1/token";
-const FORTNOX_API_BASE_URL: &str = "https://api.fortnox.se/3";
-const FORTNOX_SCOPES: &str = "project companyinformation"; // Add needed scopes
+ // --- Configuration & Constants ---
 
-// --- !! SECURITY WARNING !! ---
-// Storing tokens in a plain text file is NOT recommended for production.
-// Use environment variables, a secure vault, database with encryption,
-// or OS-level secure storage. Ensure file permissions are restrictive.
-const TOKEN_FILE: &str = "fortnox_token.json";
-// --- !! SECURITY WARNING !! ---
+ const FORTNOX_AUTH_URL: &str = "https://apps.fortnox.se/oauth-v1/auth";
+ const FORTNOX_TOKEN_URL: &str = "https://apps.fortnox.se/oauth-v1/token";
+ const FORTNOX_API_BASE_URL: &str = "https://api.fortnox.se/3";
+ const FORTNOX_SCOPES: &str = "project companyinformation"; // Add needed scopes
 
-// --- Error Handling ---
+ // --- !! SECURITY WARNING !! ---
+ // Storing tokens in a plain text file is NOT recommended for production.
+ // Use environment variables, a secure vault, database with encryption,
+ // or OS-level secure storage. Ensure file permissions are restrictive.
+ const TOKEN_FILE: &str = "fortnox_token.json";
+ // --- !! SECURITY WARNING !! ---
 
-#[derive(Error, Debug)]
-enum AppError {
+ // --- Error Handling ---
+
+ #[derive(Error, Debug)]
+ enum AppError {
     #[error("Missing environment variable: {0}")]
     MissingEnvVar(String),
     #[error("HTTP request failed: {0}")]
@@ -69,10 +71,12 @@ enum AppError {
     MissingOrInvalidToken, // Renamed for clarity
     #[error("System time error: {0}")]
     SystemTimeError(String), // Added for time errors
-}
+    #[error("TLS configuration error: {0}")] // Added for TLS errors
+    TlsConfig(String),
+ }
 
-// Map AppError to Axum's IntoResponse
-impl IntoResponse for AppError {
+ // Map AppError to Axum's IntoResponse
+ impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         error!("Error occurred: {}", self); // Log the original error
 
@@ -120,52 +124,60 @@ impl IntoResponse for AppError {
                 "Authorization code missing in callback.".to_string(),
             ),
             AppError::MissingOrInvalidToken => (
-                 // Redirect to root might be better? Or show error page?
+                // Redirect to root might be better? Or show error page?
                 (AxumStatusCode::UNAUTHORIZED,
                 "Authentication token not available, expired, or refresh failed. Please try authenticating again via /".to_string())
             ),
              AppError::SystemTimeError(ref msg) => (
                  AxumStatusCode::INTERNAL_SERVER_ERROR,
                  format!("Internal Server Error (Time Calculation: {})", msg)
-             )
+             ),
+             AppError::TlsConfig(ref msg) => ( // Added TLS error handling
+                AxumStatusCode::INTERNAL_SERVER_ERROR,
+                format!("Internal server error (TLS Setup: {}). Check logs.", msg)
+            ),
         };
 
         // Return HTML error page
         (status_code, Html(format!("<h1>Error</h1><p>{}</p>", error_message))).into_response()
     }
-}
+ }
 
-// --- Data Structures ---
+ // --- Data Structures ---
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Config {
+ #[derive(Debug, Serialize, Deserialize, Clone)]
+ struct Config {
     client_id: String,
     client_secret: String,
     redirect_uri: String,
-}
+    // --- Added for HTTPS ---
+    cert_path: String,
+    key_path: String,
+    // --- /Added for HTTPS ---
+ }
 
-// Raw response from Fortnox token endpoint
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct TokenResponse {
+ // Raw response from Fortnox token endpoint
+ #[derive(Debug, Clone, Serialize, Deserialize)]
+ struct TokenResponse {
     access_token: String,
     refresh_token: String,
     expires_in: u64,
     token_type: String,
     scope: String,
-}
+ }
 
-// Structure for storing token data persistently
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct StoredTokenData {
+ // Structure for storing token data persistently
+ #[derive(Serialize, Deserialize, Debug, Clone)]
+ struct StoredTokenData {
     access_token: String,
     refresh_token: String,
     // Store the absolute expiry time (Unix timestamp in seconds)
     expires_at_unix_secs: u64,
     scope: String,
     token_type: String,
-}
+ }
 
-impl StoredTokenData {
+ impl StoredTokenData {
     /// Checks if the access token is expired or will expire within the buffer time.
     fn is_expired(&self, buffer_secs: u64) -> Result<bool, AppError> {
         let now_unix = SystemTime::now()
@@ -175,31 +187,31 @@ impl StoredTokenData {
         // Check if 'now' is later than or equal to expiry time minus buffer
         Ok(now_unix >= self.expires_at_unix_secs.saturating_sub(buffer_secs))
     }
-}
+ }
 
 
-#[derive(Clone)]
-struct AppState {
+ #[derive(Clone)]
+ struct AppState {
     config: Arc<Config>,
     http_client: Client,
     oauth_state: Arc<Mutex<Option<String>>>,
     // Store the persistent token info
     token_data: Arc<Mutex<Option<StoredTokenData>>>,
-}
+ }
 
-#[derive(Deserialize, Debug)]
-struct AuthCallbackParams {
+ #[derive(Deserialize, Debug)]
+ struct AuthCallbackParams {
     code: Option<String>,
     state: Option<String>,
     error: Option<String>,
     error_description: Option<String>,
-}
+ }
 
-// --- Fortnox API Response Structures ---
-// (Project structures - unchanged)
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
-struct Project {
+ // --- Fortnox API Response Structures ---
+ // (Project structures - unchanged)
+ #[derive(Serialize, Deserialize, Debug, Clone)]
+ #[serde(rename_all = "PascalCase")]
+ struct Project {
     #[serde(rename = "@url")]
     url: Option<String>,
     project_number: String,
@@ -208,11 +220,11 @@ struct Project {
     start_date: Option<String>,
     end_date: Option<String>,
     customer_number: Option<String>,
-}
+ }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
-struct ProjectResponse {
+ #[derive(Serialize, Deserialize, Debug, Clone)]
+ #[serde(rename_all = "PascalCase")]
+ struct ProjectResponse {
     // NOTE: Fortnox response might actually use "Projects" here
     projects: Vec<Project>,
     #[serde(rename = "@TotalResources")]
@@ -221,20 +233,20 @@ struct ProjectResponse {
     total_pages: Option<i32>,
     #[serde(rename = "@CurrentPage")]
     current_page: Option<i32>,
-}
-// Add other response structures (TimeEntry, Absence, etc.) as needed
+ }
+ // Add other response structures (TimeEntry, Absence, etc.) as needed
 
 
-// --- Fortnox API Client ---
-#[derive(Clone)]
-struct FortnoxApiClient {
+ // --- Fortnox API Client ---
+ #[derive(Clone)]
+ struct FortnoxApiClient {
     http_client: Client,
     config: Arc<Config>,
     access_token: String, // Holds the *valid* access token for requests
     base_url: String,
-}
+ }
 
-impl FortnoxApiClient {
+ impl FortnoxApiClient {
     /// Creates a new Fortnox API client instance. Requires a VALID access token.
     pub fn new(
         http_client: Client,
@@ -293,12 +305,12 @@ impl FortnoxApiClient {
         self.get::<ProjectResponse>("/projects").await
     }
     // Add other methods (fetch_time_entries, etc.)
-}
+ }
 
 
-// --- Token Storage Functions ---
+ // --- Token Storage Functions ---
 
-fn save_token_data(token_response: &TokenResponse) -> Result<StoredTokenData, AppError> {
+ fn save_token_data(token_response: &TokenResponse) -> Result<StoredTokenData, AppError> {
     let now_unix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|e| AppError::SystemTimeError(e.to_string()))?
@@ -324,9 +336,9 @@ fn save_token_data(token_response: &TokenResponse) -> Result<StoredTokenData, Ap
     file.write_all(json_string.as_bytes())?;
     info!("Token data saved to {}", TOKEN_FILE);
     Ok(stored_data) // Return the data that was saved
-}
+ }
 
-fn load_token_data() -> Result<Option<StoredTokenData>, AppError> {
+ fn load_token_data() -> Result<Option<StoredTokenData>, AppError> {
     if !Path::new(TOKEN_FILE).exists() {
         info!("Token file {} not found.", TOKEN_FILE);
         return Ok(None);
@@ -338,14 +350,14 @@ fn load_token_data() -> Result<Option<StoredTokenData>, AppError> {
     let stored_data: StoredTokenData = serde_json::from_str(&json_string)?;
     info!("Token data loaded from {}", TOKEN_FILE);
     Ok(Some(stored_data))
-}
+ }
 
 
-// --- Token Refresh Logic ---
+ // --- Token Refresh Logic ---
 
-/// Attempts to refresh the access token using the stored refresh token.
-/// Updates the stored token file and the in-memory AppState on success.
-async fn refresh_access_token(state: &AppState) -> Result<StoredTokenData, AppError> {
+ /// Attempts to refresh the access token using the stored refresh token.
+ /// Updates the stored token file and the in-memory AppState on success.
+ async fn refresh_access_token(state: &AppState) -> Result<StoredTokenData, AppError> {
     info!("Attempting to refresh access token...");
     let stored_token_opt = state.token_data.lock().await.clone();
 
@@ -414,11 +426,11 @@ async fn refresh_access_token(state: &AppState) -> Result<StoredTokenData, AppEr
         // Return specific error indicating refresh failed / re-auth needed
         Err(AppError::MissingOrInvalidToken)
     }
-}
+ }
 
-/// Ensures a valid access token is available, refreshing if necessary.
-/// Returns a valid access token string.
-async fn ensure_valid_token(state: &AppState) -> Result<String, AppError> {
+ /// Ensures a valid access token is available, refreshing if necessary.
+ /// Returns a valid access token string.
+ async fn ensure_valid_token(state: &AppState) -> Result<String, AppError> {
     let mut token_data_guard = state.token_data.lock().await; // Lock mutex
 
     let needs_refresh = match *token_data_guard {
@@ -449,13 +461,13 @@ async fn ensure_valid_token(state: &AppState) -> Result<String, AppError> {
         Ok(token_data_guard.as_ref().unwrap().access_token.clone())
     }
     // Lock is automatically dropped when token_data_guard goes out of scope
-}
+ }
 
 
-// --- Main Application Logic ---
+ // --- Main Application Logic ---
 
-#[tokio::main]
-async fn main() -> Result<(), AppError> {
+ #[tokio::main]
+ async fn main() -> Result<(), AppError> {
     // --- Setup ---
     dotenv::dotenv().ok(); // Load .env file if present
     let subscriber = FmtSubscriber::builder()
@@ -472,6 +484,13 @@ async fn main() -> Result<(), AppError> {
             .map_err(|_| AppError::MissingEnvVar("FORTNOX_CLIENT_SECRET".into()))?,
         redirect_uri: env::var("FORTNOX_REDIRECT_URI")
             .map_err(|_| AppError::MissingEnvVar("FORTNOX_REDIRECT_URI".into()))?,
+        // --- Added for HTTPS ---
+        // Expect environment variables for cert/key paths
+        cert_path: env::var("CERT_PATH")
+            .map_err(|_| AppError::MissingEnvVar("CERT_PATH".into()))?,
+        key_path: env::var("KEY_PATH")
+            .map_err(|_| AppError::MissingEnvVar("KEY_PATH".into()))?,
+        // --- /Added for HTTPS ---
     });
     info!("Configuration loaded.");
 
@@ -507,7 +526,7 @@ async fn main() -> Result<(), AppError> {
 
     // --- Create Shared State ---
     let state = AppState {
-        config: config.clone(),
+        config: config.clone(), // Clone config Arc for state
         http_client: Client::builder()
             // Configure client timeouts, proxies etc. if needed
             .timeout(Duration::from_secs(30))
@@ -526,8 +545,24 @@ async fn main() -> Result<(), AppError> {
         // Add other routes for specific actions if desired
         .with_state(state.clone()); // Clone state for the web server
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    info!("Starting server on http://{}", addr);
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3000)); // Keep port 3000 or change as needed
+    info!("Attempting to bind server on https://{}", addr);
+
+    // --- Configure TLS ---
+    let tls_config = match RustlsConfig::from_pem_file(
+        PathBuf::from(&config.cert_path), // Use PathBuf from config
+        PathBuf::from(&config.key_path),  // Use PathBuf from config
+    )
+    .await // Needs to be awaited
+    {
+        Ok(config) => config,
+        Err(e) => {
+            let err_msg = format!("Failed to load TLS cert/key: {}", e);
+            error!("{}", err_msg); // Log the specific error
+            return Err(AppError::TlsConfig(err_msg)); // Return a specific TLS config error
+        }
+    };
+    info!("TLS configuration loaded successfully from {} and {}", config.cert_path, config.key_path);
 
 
     // --- Example Background Task Spawn (Optional) ---
@@ -547,17 +582,19 @@ async fn main() -> Result<(), AppError> {
     });
 
 
-    // --- Run Web Server ---
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    // --- Run Web Server with TLS ---
+    info!("Starting server on https://{}", addr);
+    axum_server::bind_rustls(addr, tls_config)
+        .serve(app.into_make_service())
+        .await?; // Use axum_server::bind_rustls
 
     Ok(())
-}
+ }
 
-// --- Web Handlers ---
+ // --- Web Handlers ---
 
-// Handler for the root path: Initiates the OAuth flow
-async fn handle_root(State(state): State<AppState>) -> Result<Redirect, AppError> {
+ // Handler for the root path: Initiates the OAuth flow
+ async fn handle_root(State(state): State<AppState>) -> Result<Redirect, AppError> {
     info!("Handling / request, initiating OAuth flow...");
     let random_state: String = thread_rng()
         .sample_iter(&Alphanumeric)
@@ -581,14 +618,14 @@ async fn handle_root(State(state): State<AppState>) -> Result<Redirect, AppError
 
     info!("Redirecting user to Fortnox: {}", auth_url);
     Ok(Redirect::temporary(auth_url.as_str()))
-}
+ }
 
-// Handler for the OAuth callback URL ("/callback")
-async fn handle_callback(
+ // Handler for the OAuth callback URL ("/fortnox/callback")
+ async fn handle_callback(
     State(state): State<AppState>,
     Query(params): Query<AuthCallbackParams>,
-) -> Result<Html<String>, AppError> {
-    info!("Handling /callback request with params: {:?}", params);
+ ) -> Result<Html<String>, AppError> {
+    info!("Handling /fortnox/callback request with params: {:?}", params);
 
     // 1. Check for OAuth errors from Fortnox
     if let Some(error) = params.error {
@@ -640,7 +677,7 @@ async fn handle_callback(
         Err(e) => {
             error!("CRITICAL: Failed to save initial token data: {}", e);
              // Update state anyway so refresh token might be available? Or return error?
-            // Let's update state but warn heavily.
+             // Let's update state but warn heavily.
              warn!("Proceeding with in-memory token despite save failure.");
              let now_unix = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|se|AppError::SystemTimeError(se.to_string()))?.as_secs();
              let expires_at = now_unix + token_response.expires_in;
@@ -699,20 +736,20 @@ async fn handle_callback(
          }
     }
 
-}
+ }
 
-// Example status handler
-async fn handle_status(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+ // Example status handler
+ async fn handle_status(State(state): State<AppState>) -> Result<Html<String>, AppError> {
     info!("Handling /status request");
     let token_lock = state.token_data.lock().await;
     let status_message = match &*token_lock {
         Some(token) => {
             match token.is_expired(60) {
                  Ok(true) => format!("Token present but expired or needs refresh soon (Refresh Token: ...{}).",
-                                     &token.refresh_token.chars().take(8).collect::<String>()), // Show partial refresh token for debugging
+                                      &token.refresh_token.chars().take(8).collect::<String>()), // Show partial refresh token for debugging
                  Ok(false) => format!("Token present and valid until approx Unix timestamp {}. (Access Token: ...{})",
-                                     token.expires_at_unix_secs,
-                                     &token.access_token.chars().take(8).collect::<String>()), // Show partial access token
+                                       token.expires_at_unix_secs,
+                                       &token.access_token.chars().take(8).collect::<String>()), // Show partial access token
                  Err(e) => format!("Token present but failed to check expiry: {}", e),
             }
         }
@@ -725,17 +762,17 @@ async fn handle_status(State(state): State<AppState>) -> Result<Html<String>, Ap
     );
     // Make sure to add chrono to Cargo.toml: chrono = { version = "0.4", features = ["serde"] }
     Ok(Html(html_body))
-}
+ }
 
 
-// --- Helper Functions ---
+ // --- Helper Functions ---
 
-// Exchanges the authorization code for tokens (initial exchange)
-async fn exchange_code_for_token(
+ // Exchanges the authorization code for tokens (initial exchange)
+ async fn exchange_code_for_token(
     client: &Client,
     config: &Config,
     code: &str,
-) -> Result<TokenResponse, AppError> {
+ ) -> Result<TokenResponse, AppError> {
     info!("Exchanging authorization code for tokens...");
     let credentials = format!("{}:{}", config.client_id, config.client_secret);
     let encoded_credentials = BASE64_STANDARD.encode(credentials);
@@ -744,7 +781,7 @@ async fn exchange_code_for_token(
     let params = [
         ("grant_type", "authorization_code"),
         ("code", code),
-        ("redirect_uri", &config.redirect_uri),
+        ("redirect_uri", &config.redirect_uri), // Ensure this matches the HTTPS URI
     ];
 
     let response = client
@@ -767,10 +804,10 @@ async fn exchange_code_for_token(
         );
         Err(AppError::FortnoxApiError { status, message: error_text })
     }
-}
+ }
 
-// --- Example Background Task Logic ---
-async fn run_example_api_call(state: AppState) {
+ // --- Example Background Task Logic ---
+ async fn run_example_api_call(state: AppState) {
     info!("Running example API call sequence...");
 
     match ensure_valid_token(&state).await {
@@ -786,16 +823,16 @@ async fn run_example_api_call(state: AppState) {
             // Perform API calls
             match api_client.fetch_projects().await {
                 Ok(projects) => {
-                     info!("Example Task: Successfully fetched {} projects.", projects.projects.len());
-                      println!("\n--- Fetched Fortnox Project Names (Example Task) ---");
-                      if projects.projects.is_empty() {
-                          println!("No projects found.");
-                      } else {
-                          for project in projects.projects.iter().take(5) { // Print first 5
-                              println!(" - {} ({})", project.description, project.project_number);
-                          }
-                      }
-                      println!("----------------------------------------------------\n");
+                    info!("Example Task: Successfully fetched {} projects.", projects.projects.len());
+                    println!("\n--- Fetched Fortnox Project Names (Example Task) ---");
+                    if projects.projects.is_empty() {
+                        println!("No projects found.");
+                    } else {
+                        for project in projects.projects.iter().take(5) { // Print first 5
+                            println!(" - {} ({})", project.description, project.project_number);
+                        }
+                    }
+                    println!("-----------------------------------------------------\n");
                 }
                 Err(e) => error!("Example Task: Failed to fetch projects: {}", e),
             }
@@ -806,7 +843,9 @@ async fn run_example_api_call(state: AppState) {
             match e {
                 // If it's the specific error indicating re-auth is needed
                 AppError::MissingOrInvalidToken => {
-                    warn!("Example Task: Authorization required. Please visit http://<your_server>/ to authorize.");
+                    // Use the configured redirect URI host/port for the message
+                    let server_base = state.config.redirect_uri.split("/fortnox/callback").next().unwrap_or("https://localhost:3000");
+                    warn!("Example Task: Authorization required. Please visit {}/ to authorize.", server_base);
                 }
                 _ => {
                     // Other errors might be temporary network issues etc.
@@ -815,4 +854,4 @@ async fn run_example_api_call(state: AppState) {
         }
     }
     info!("Example API call sequence finished.");
-}
+ }

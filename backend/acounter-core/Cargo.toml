@@ -12,13 +12,14 @@ license = "MIT"
 tokio = { version = "1.33.0", features = ["full", "macros", "rt-multi-thread", "sync"] }
 
 # Web framework and HTTP
-axum = { version = "0.7.9", features = ["macros"] }
+axum = { version = "0.8", features = ["macros"] }
 tower = "0.4.13"
 tower-http = { version = "0.5.0", features = ["trace"] }
 
 # Https
 axum-server = { version = "0.6.0", features = ["tls-rustls"] } # Use axum-server for TLS
 rustls-pemfile = "2.1.0" # For loading PEM certificate/key files
+http-body-util = { version = "0.1" }
 
 # Authentication and security
 # jsonwebtoken = "9.1.0" # Not needed for this specific task
@@ -68,6 +69,10 @@ rand = { version = "0.8", features = ["std_rng"] }
 
 # Base64 Encoding
 base64 = "0.21" # Check for latest version if desired
+
+hyper = "1.6.0"
+
+bytes = "1"
 
 [dev-dependencies]
 # Testing utilities
