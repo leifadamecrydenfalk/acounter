@@ -536,11 +536,12 @@ use axum::{
     };
     info!("Application state initialized.");
 
+    let api = Router::new().route("/fortnox/auth/callback", get(handle_callback));
 
     // --- Setup Web Server ---
     let app = Router::new()
         .route("/", get(handle_root))
-        .route("/fortnox/callback", get(handle_callback))
+        .nest("/api", api)
         .route("/status", get(handle_status))
         // Add other routes for specific actions if desired
         .with_state(state.clone()); // Clone state for the web server
@@ -625,7 +626,7 @@ use axum::{
     State(state): State<AppState>,
     Query(params): Query<AuthCallbackParams>,
  ) -> Result<Html<String>, AppError> {
-    info!("Handling /fortnox/callback request with params: {:?}", params);
+    info!("Handling /fortnox/auth/callback request with params: {:?}", params);
 
     // 1. Check for OAuth errors from Fortnox
     if let Some(error) = params.error {
@@ -844,7 +845,7 @@ use axum::{
                 // If it's the specific error indicating re-auth is needed
                 AppError::MissingOrInvalidToken => {
                     // Use the configured redirect URI host/port for the message
-                    let server_base = state.config.redirect_uri.split("/fortnox/callback").next().unwrap_or("https://localhost:3000");
+                    let server_base = state.config.redirect_uri.split("/fortnox/auth/callback").next().unwrap_or("https://localhost:3000");
                     warn!("Example Task: Authorization required. Please visit {}/ to authorize.", server_base);
                 }
                 _ => {
