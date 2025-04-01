@@ -17,3 +17,9 @@ target/
 #.idea/
 
 .env
+
+# Fortnox auth token
+fortnox_token.json
+
+# Https
+**.pem
