@@ -587,7 +587,7 @@ use axum::{
 
 
     // --- Run Web Server with TLS ---
-    info!("Starting HTTPS server on https://{}", addr);
+    info!("Starting server on https://{}", addr);
     axum_server::bind_rustls(addr, tls_config)
         .serve(app.into_make_service())
         .await?; // Use axum_server::bind_rustls

@@ -1,87 +1,90 @@
- [package]
- name = "acounter-core"
- version = "0.1.0"
- edition = "2021"
- authors = ["Your Name <your.email@example.com>"] # Uppdatera med din info
- description = "Fetches Fortnox time entries and saves to CSV"
- repository = "https://github.com/yourusername/fortnox-fetcher" # Uppdatera med din info
- license = "MIT"
+[package]
+name = "acounter-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"] # Uppdatera med din info
+description = "Fetches Fortnox time entries and saves to CSV"
+repository = "https://github.com/yourusername/fortnox-fetcher" # Uppdatera med din info
+license = "MIT"
 
- [dependencies]
- # Async runtime
- tokio = { version = "1.33.0", features = ["full", "macros", "rt-multi-thread", "sync"] }
+[dependencies]
+# Async runtime
+tokio = { version = "1.33.0", features = ["full", "macros", "rt-multi-thread", "sync"] }
 
- # Web framework and HTTP
- axum = { version = "0.7.9", features = ["macros"] }
- tower = "0.4.13"
- tower-http = { version = "0.5.0", features = ["trace"] }
+# Web framework and HTTP
+axum = { version = "0.7.9", features = ["macros"] }
+tower = "0.4.13"
+tower-http = { version = "0.5.0", features = ["trace"] }
 
 # Https
- axum-server = { version = "0.6.0", features = ["tls-rustls"] } # Use axum-server for TLS
- rustls-pemfile = "2.1.0" # For loading PEM certificate/key files
+axum-server = { version = "0.6.0", features = ["tls-rustls"] } # Use axum-server for TLS
+rustls-pemfile = "2.1.0" # For loading PEM certificate/key files
 
- # Authentication and security
- # jsonwebtoken = "9.1.0" # Not needed for this specific task
- # governor = "0.6.0" # Not needed for this specific task
+# Authentication and security
+# jsonwebtoken = "9.1.0" # Not needed for this specific task
+# governor = "0.6.0" # Not needed for this specific task
 
- # Database
- # sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid", "json"] } # Kommentera ut om ej relevant för detta specifika syfte
- # uuid = { version = "1.5", features = ["v4", "serde"] } # Kommentera ut om ej relevant
+# Database
+# sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid", "json"] } # Kommentera ut om ej relevant för detta specifika syfte
+# uuid = { version = "1.5", features = ["v4", "serde"] } # Kommentera ut om ej relevant
 
- # Serialization
- serde = { version = "1.0.192", features = ["derive"] }
- serde_json = "1.0.108"
+# Serialization
+serde = { version = "1.0.192", features = ["derive"] }
+serde_json = "1.0.108"
 
- # Logging and tracing
- tracing = "0.1.40"
- tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+# Logging and tracing
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 
- # CLI
- clap = { version = "4.5", features = ["derive"] }
+# CLI
+clap = { version = "4.5", features = ["derive"] }
 
- # Email
- # lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder"] } # Kommentera ut om ej relevant
+# Email
+# lettre = { version = "0.11", features = ["tokio1", "tokio1-native-tls", "builder"] } # Kommentera ut om ej relevant
 
- # HTTP client
- reqwest = { version = "0.11.22", features = ["json", "rustls-tls"] } # Using rustls-tls for better cross-platform compatibility
+# Slack client library
+slack-morphism = { version = "2.10.1", features = ["axum"] }
 
- # Date and time
- chrono = { version = "0.4.31", features = ["serde"] } # Uncommented as it's used in handle_status
+# HTTP client
+reqwest = { version = "0.11.22", features = ["json", "rustls-tls"] } # Using rustls-tls for better cross-platform compatibility
 
- # Configuration and utilities
- dotenv = "0.15.0"
- envy = "0.4.2" # Can use this or just std::env for simplicity here
- thiserror = "1.0.50"
- async-trait = "0.1.74"
+# Date and time
+chrono = { version = "0.4.31", features = ["serde"] } # Uncommented as it's used in handle_status
 
- # CSV Handling
- csv = "1.3"
+# Configuration and utilities
+dotenv = "0.15.0"
+envy = "0.4.2" # Can use this or just std::env for simplicity here
+thiserror = "1.0.50"
+async-trait = "0.1.74"
 
- # URL Handling
- url = "2.5.0"
+# CSV Handling
+csv = "1.3"
 
- # Random Generation
- rand = { version = "0.8", features = ["std_rng"] }
+# URL Handling
+url = "2.5.0"
 
- # Base64 Encoding
- base64 = "0.21" # Check for latest version if desired
+# Random Generation
+rand = { version = "0.8", features = ["std_rng"] }
 
- [dev-dependencies]
- # Testing utilities
- # tokio-test = "0.4.3"
- # mockall = "0.11.4"
- # wiremock = "0.5.19"
+# Base64 Encoding
+base64 = "0.21" # Check for latest version if desired
 
- [profile.release]
- # Optimization settings
- opt-level = 3
- lto = true
- codegen-units = 1
- panic = 'abort'
- strip = true
+[dev-dependencies]
+# Testing utilities
+# tokio-test = "0.4.3"
+# mockall = "0.11.4"
+# wiremock = "0.5.19"
 
- [profile.dev]
- # Developer experience improvements
- opt-level = 0
- debug = true
+[profile.release]
+# Optimization settings
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = 'abort'
+strip = true
+
+[profile.dev]
+# Developer experience improvements
+opt-level = 0
+debug = true
 
