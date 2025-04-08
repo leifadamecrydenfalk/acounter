@@ -945,7 +945,7 @@ async fn run_example_api_call(state: AppState) {
                         .redirect_uri
                         .split("/fortnox/auth/callback")
                         .next()
-                        .unwrap_or("https://localhost:3000"); // Fallback needed?
+                        .unwrap(); 
                     warn!("Example Task: Fortnox authorization required. Please visit {}/ to authorize.", server_base);
                 }
                 _ => {
