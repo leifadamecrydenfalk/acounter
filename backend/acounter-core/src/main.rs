@@ -28,7 +28,13 @@ use url::Url;
 
 use axum_server::tls_rustls::RustlsConfig;
 
+mod fortnox_info;
+pub use fortnox_info::*;
+
 // --- Configuration & Constants ---
+
+const INFO_CACHE_FILE_NAME: &str = "fortnox_info_cache.json";
+const INFO_CACHE_DURATION_SECS: u64 = 24 * 60 * 60; 
 
 // Moved Fortnox URLs into FortnoxService as associated constants
 const TOKEN_FILE_NAME: &str = "fortnox_token.json"; // Just the filename
@@ -165,6 +171,7 @@ struct FortnoxConfig {
     redirect_uri: String,
     scopes: String,           // Moved scopes here
     token_file_path: PathBuf, // Store the full path
+    info_cache_path: PathBuf,
 }
 
 // Raw response from Fortnox token endpoint (Unchanged)
@@ -298,6 +305,22 @@ impl FortnoxApiClient {
         info!("Fetching projects via API client...");
         self.get::<ProjectResponse>("/projects").await
     }
+
+        // Fetches all employees
+        pub async fn fetch_employees(&self) -> Result<EmployeeResponse, AppError> {
+            info!("Fetching employees via API client...");
+            // Note: Fortnox might paginate. For simplicity, this fetches the first page.
+            // Implement pagination handling if you have many employees.
+            self.get::<EmployeeResponse>("/employees").await
+        }
+    
+        // Fetches Salary Codes (often used for time/absence registration)
+        pub async fn fetch_salary_codes(&self) -> Result<SalaryCodeResponse, AppError> {
+            info!("Fetching salary codes via API client...");
+            // Note: Check Fortnox docs for endpoint name and potential filters
+            // (e.g., ?filter=salarycodetype&salarycodetype=ARBETTID or FRÅNVARO)
+            self.get::<SalaryCodeResponse>("/salarycodes").await
+        }
 }
 
 // --- Fortnox Service ---
@@ -703,6 +726,143 @@ impl FortnoxService {
              None => format!("No token present in memory. Needs authorization via /. Token file path: {}", self.config.token_file_path.display()),
          }
     }
+
+    /// Fetches personnel (employees) and constructs time registration information.
+    /// Uses a file cache to avoid frequent API calls.
+    pub async fn get_personnel_and_time_info(&self)
+        -> Result<(Vec<Employee>, TimeRegistrationInfo), AppError>
+    {
+        info!("Attempting to get personnel and time registration info...");
+
+        // 1. Try loading from cache
+        match self.load_info_cache() {
+            Ok(Some(cached_data)) => {
+                // 2. Check if cache is stale
+                match cached_data.is_stale(INFO_CACHE_DURATION_SECS) {
+                    Ok(false) => {
+                        info!("Valid info cache found. Returning cached data.");
+                        return Ok((cached_data.employees, cached_data.time_info));
+                    }
+                    Ok(true) => {
+                        info!("Info cache found but is stale (older than {} seconds). Refetching.", INFO_CACHE_DURATION_SECS);
+                        // Proceed to fetch fresh data
+                    }
+                    Err(e) => {
+                        warn!("Failed to check cache staleness: {}. Refetching.", e);
+                        // Proceed to fetch fresh data
+                    }
+                }
+            }
+            Ok(None) => {
+                info!("No info cache found. Fetching fresh data.");
+                // Proceed to fetch fresh data
+            }
+            Err(e) => {
+                // Error loading cache (I/O or parse error handled inside load_info_cache)
+                warn!("Failed to load or parse info cache: {}. Refetching.", e);
+                 // Proceed to fetch fresh data
+            }
+        }
+
+        // 3. Fetch fresh data from API if cache miss or stale
+        info!("Fetching fresh personnel and time info from Fortnox API...");
+        let api_client = self.get_api_client().await?;
+
+        // Fetch Employees
+        let employee_response = api_client.fetch_employees().await?;
+        let employees = employee_response.employees;
+        info!("Fetched {} employees.", employees.len());
+
+        // Fetch Salary Codes
+        let salary_code_response = api_client.fetch_salary_codes().await?;
+        let salary_codes = salary_code_response.salary_codes;
+        info!("Fetched {} salary codes.", salary_codes.len());
+
+        // Construct the TimeRegistrationInfo (same as before)
+        let time_info = TimeRegistrationInfo {
+             mandatory_for_worked_time: vec![
+                "Date".to_string(), "Client (Customer)".to_string(), "Project".to_string(),
+                "Service".to_string(), "Registration Code (Salary Code)".to_string(),
+                "Hours Worked".to_string(), "(Note only for foreign public holidays)".to_string(),
+            ],
+            mandatory_for_absence: vec![
+                "Date".to_string(), "Registration Code (Salary Code)".to_string(),
+                "Number of hours OR Check box for full day".to_string(),
+            ],
+            other_notes: "Fields like cost center, invoice text, and note generally do not need to be filled in – but it's okay if they are used.".to_string(),
+            available_salary_codes: salary_codes,
+        };
+
+        // 4. Try to save the fresh data to the cache
+        match self.save_info_cache(&employees, &time_info) {
+            Ok(_) => info!("Successfully updated info cache file."),
+            Err(e) => {
+                // Log error but don't fail the request - return the fresh data anyway
+                error!("Failed to save updated info cache: {}", e);
+            }
+        }
+
+        // 5. Return the freshly fetched data
+        Ok((employees, time_info))
+    }
+
+
+    /// Loads cached info data from the configured file path.
+    fn load_info_cache(&self) -> Result<Option<CachedInfo>, AppError> {
+        let path = &self.config.info_cache_path;
+        if !path.exists() {
+            info!("Info cache file {} not found.", path.display());
+            return Ok(None);
+        }
+        // --- SECURITY --- Consider file permissions if sensitive data were stored
+        match fs::read_to_string(path) {
+            Ok(json_string) => {
+                match serde_json::from_str::<CachedInfo>(&json_string) {
+                    Ok(data) => {
+                        info!("Info cache loaded successfully from {}", path.display());
+                        Ok(Some(data))
+                    }
+                    Err(e) => {
+                        // File exists but is corrupt/malformed
+                        error!("Failed to parse info cache file {}: {}. Will attempt refetch.", path.display(), e);
+                        // Optionally delete the corrupt file?
+                        // fs::remove_file(path).ok();
+                        Err(AppError::SerdeJson(e)) // Propagate error, but maybe just return Ok(None) to force refetch? Let's return Ok(None).
+                        // Ok(None) // Treat parse error as cache miss
+                    }
+                }
+            }
+            Err(e) => {
+                // File exists but couldn't be read
+                 error!("Failed to read info cache file {}: {}. Will attempt refetch.", path.display(), e);
+                 Err(AppError::Io(e)) // Propagate I/O error, but maybe just return Ok(None) to force refetch? Let's return Ok(None).
+                 // Ok(None) // Treat read error as cache miss
+            }
+        }
+    }
+
+    /// Saves the combined info data to the configured cache file path.
+    fn save_info_cache(&self, employees: &[Employee], time_info: &TimeRegistrationInfo) -> Result<(), AppError> {
+        let path = &self.config.info_cache_path;
+        let now_unix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| AppError::SystemTimeError(e.to_string()))?
+            .as_secs();
+
+        let cache_data = CachedInfo {
+            employees: employees.to_vec(), // Clone data into the cache struct
+            time_info: time_info.clone(),  // Clone data
+            last_updated_unix_secs: now_unix,
+        };
+
+        let json_string = serde_json::to_string_pretty(&cache_data)?;
+
+        // --- SECURITY --- Consider file permissions
+        let mut file = File::create(path)?; // Overwrites existing file
+        file.write_all(json_string.as_bytes())?;
+        info!("Info cache data saved to {}", path.display());
+        Ok(())
+    }
 }
 
 // --- Shared Application State ---
@@ -750,15 +910,19 @@ async fn main() -> Result<(), AppError> {
         redirect_uri: env::var("FORTNOX_REDIRECT_URI")
             .map_err(|_| AppError::MissingEnvVar("FORTNOX_REDIRECT_URI".into()))?,
         scopes: env::var("FORTNOX_SCOPES")
-            .map_err(|_| AppError::MissingEnvVar("FORTNOX_SCOPES".into()))?, // Use const default if env var missing
-        // Use a dedicated env var for token path or default to current dir
+            .map_err(|_| AppError::MissingEnvVar("FORTNOX_SCOPES".into()))?,
         token_file_path: env::var("TOKEN_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from(TOKEN_FILE_NAME)), // Default to TOKEN_FILE_NAME in cwd
+            .unwrap_or_else(|_| PathBuf::from(TOKEN_FILE_NAME)),
+        // Set the cache path, defaulting to current directory
+        info_cache_path: env::var("INFO_CACHE_PATH") // Optional env var override
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(INFO_CACHE_FILE_NAME)), // Default filename
     };
     info!(
-        "Fortnox configuration loaded. Token file path: {}",
-        fortnox_config.token_file_path.display()
+        "Fortnox configuration loaded. Token file: {}, Info cache file: {}",
+        fortnox_config.token_file_path.display(),
+        fortnox_config.info_cache_path.display() 
     );
 
     // --- Create HTTP Client (shared potentially, but FortnoxService needs one) ---
@@ -777,7 +941,8 @@ async fn main() -> Result<(), AppError> {
     // --- Define Routes ---
     let fortnox_routes = Router::new()
         .route("/auth/callback", get(handle_callback))
-        .route("/auth", get(handle_fortnox_auth));
+        .route("/auth", get(handle_fortnox_auth))
+        .route("/info", get(handle_get_info));
     let api_routes = Router::new().nest("/fortnox", fortnox_routes);
 
     let app = Router::new()
@@ -887,6 +1052,92 @@ async fn handle_callback(
             Err(e)
         }
     }
+}
+
+
+/// Handler to fetch and display personnel and time registration info
+async fn handle_get_info(
+    State(state): State<AppState>
+) -> Result<Html<String>, AppError> {
+    info!("Handling /api/fortnox/info request...");
+
+    let (employees, time_info) = state.fortnox_service.get_personnel_and_time_info().await?;
+
+    // --- Format Output ---
+    let mut html = String::new();
+    html.push_str("<h1>Fortnox Information</h1>");
+
+    // Personnel Section
+    html.push_str("<h2>Personnel (Employees)</h2>");
+    if employees.is_empty() {
+        html.push_str("<p>No employees found.</p>");
+    } else {
+        html.push_str("<ul>");
+        for emp in employees {
+            let name = emp.full_name.clone().unwrap_or_else(||
+                format!("{} {}", emp.first_name.clone().unwrap_or_default(), emp.last_name.clone().unwrap_or_default())
+            );
+            let active_status = match emp.active {
+                Some(true) => " (Active)",
+                Some(false) => " (Inactive)",
+                None => " (Activity Unknown)" // Handle if 'Active' field is missing
+            };
+            let end_date_status = match emp.end_date {
+                 Some(ref date) if !date.is_empty() => format!(" (End Date: {})", date),
+                 _ => "".to_string()
+            };
+             // Basic check for inactive based on flags
+            let display_status = if emp.active == Some(false) || (!end_date_status.is_empty() && active_status == " (Activity Unknown)") {
+                 format!("{} {}", active_status, end_date_status)
+            } else {
+                 active_status.to_string()
+            };
+
+
+            html.push_str(&format!(
+                "<li>{}: {} {}</li>",
+                emp.employee_id,
+                name.trim(), // Handle potential empty first/last names
+                display_status
+            ));
+        }
+        html.push_str("</ul>");
+    }
+
+    // Time Registration Section
+    html.push_str("<h2>Time Registration Information</h2>");
+    html.push_str("<h3>Mandatory Information (Worked Time)</h3>");
+    html.push_str("<ul>");
+    for item in time_info.mandatory_for_worked_time {
+        html.push_str(&format!("<li>{}</li>", item));
+    }
+    html.push_str("</ul>");
+
+    html.push_str("<h3>Mandatory Information (Absence)</h3>");
+    html.push_str("<ul>");
+    for item in time_info.mandatory_for_absence {
+        html.push_str(&format!("<li>{}</li>", item));
+    }
+    html.push_str("</ul>");
+
+    html.push_str("<h3>Other Notes</h3>");
+    html.push_str(&format!("<p>{}</p>", time_info.other_notes));
+
+    html.push_str("<h3>Available Registration Codes (Salary Codes)</h3>");
+    if time_info.available_salary_codes.is_empty() {
+        html.push_str("<p>No salary codes found.</p>");
+    } else {
+        html.push_str("<ul>");
+        // Maybe filter or group by type? For now, list all.
+        for code in time_info.available_salary_codes {
+            html.push_str(&format!("<li>{}: {} (Type: {})</li>",
+                code.code, code.description, code.code_type));
+        }
+        html.push_str("</ul>");
+        html.push_str("<p><i>Note: Filter these codes based on 'CodeType' (e.g., ARBETTID, FRÅNVARO) as needed for specific time/absence entry.</i></p>");
+    }
+
+    Ok(Html(html))
 }
 
 // Gets status from FortnoxService
