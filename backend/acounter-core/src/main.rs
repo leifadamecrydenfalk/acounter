@@ -51,7 +51,6 @@ const TOKEN_FILE_NAME: &str = "fortnox_token.json";
 // or OS-level secure storage. Ensure file permissions are restrictive.
 // --- !! SECURITY WARNING !! ---
 
-
 // --- Error Handling (Mostly Unchanged, added FortnoxServiceError variant) ---
 
 // --- Fortnox Specific Error Payload Parsing ---
@@ -60,7 +59,7 @@ const TOKEN_FILE_NAME: &str = "fortnox_token.json";
 pub struct FortnoxErrorInformation {
     pub error: Option<serde_json::Value>, // Use Value for flexibility (could be int or string)
     pub message: Option<String>,
-    pub  code: Option<serde_json::Value>, // Use Value for flexibility
+    pub code: Option<serde_json::Value>, // Use Value for flexibility
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -90,7 +89,7 @@ pub enum AppError {
     FortnoxApiError {
         status: ReqwestStatusCode,
         parsed_error: Option<FortnoxErrorPayload>, // Store parsed structure
-        raw_message: Option<String>,             // Keep raw as fallback
+        raw_message: Option<String>,               // Keep raw as fallback
     },
     #[error("Fortnox API rate limit exceeded (Status 429)")]
     FortnoxRateLimited, // Specific variant for rate limiting
@@ -118,76 +117,82 @@ impl IntoResponse for AppError {
         error!("Error occurred: {}", self); // Log the original error
 
         let (status_code, error_message) = match self {
-           
             // Handling for the new variant
-            AppError::SuccessfulResponseDeserialization(ref _e) => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error (Unexpected response format from Fortnox). Check logs.".to_string()
-            ),
+            AppError::SuccessfulResponseDeserialization(ref _e) =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error (Unexpected response format from Fortnox). Check logs.".to_string(),
+                ),
 
             // Ensure all existing mappings are correct
-             AppError::MissingEnvVar(ref _var) => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                "Configuration error.".to_string(),
-            ),
-            AppError::Reqwest(ref _e) => (
-                AxumStatusCode::BAD_GATEWAY,
-                "External request failed.".to_string(),
-            ),
-            AppError::UrlParse(_) => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error (URL parsing).".to_string(),
-            ),
-            AppError::SerdeJson(_) => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error (JSON processing).".to_string(),
-            ),
-            AppError::Io(_) => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error (File I/O). Check logs.".to_string(),
-            ),
-            AppError::OAuthStateMismatch => (
-                AxumStatusCode::BAD_REQUEST,
-                "OAuth state validation failed.".to_string(),
-            ),
-            AppError::FortnoxApiError { status, .. } => { // Simplified match arm
-                let axum_status = AxumStatusCode::from_u16(status.as_u16())
-                    .unwrap_or(AxumStatusCode::INTERNAL_SERVER_ERROR);
+            AppError::MissingEnvVar(ref _var) =>
+                (AxumStatusCode::INTERNAL_SERVER_ERROR, "Configuration error.".to_string()),
+            AppError::Reqwest(ref _e) =>
+                (AxumStatusCode::BAD_GATEWAY, "External request failed.".to_string()),
+            AppError::UrlParse(_) =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error (URL parsing).".to_string(),
+                ),
+            AppError::SerdeJson(_) =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error (JSON processing).".to_string(),
+                ),
+            AppError::Io(_) =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error (File I/O). Check logs.".to_string(),
+                ),
+            AppError::OAuthStateMismatch =>
+                (AxumStatusCode::BAD_REQUEST, "OAuth state validation failed.".to_string()),
+            AppError::FortnoxApiError { status, .. } => {
+                // Simplified match arm
+                let axum_status = AxumStatusCode::from_u16(status.as_u16()).unwrap_or(
+                    AxumStatusCode::INTERNAL_SERVER_ERROR
+                );
 
                 let user_message = format!(
                     "Failed to communicate with Fortnox API (Status {}). Details logged.",
                     status.as_u16()
                 );
-                 (axum_status, user_message)
-            },
-            AppError::FortnoxRateLimited => (
-                AxumStatusCode::TOO_MANY_REQUESTS,
-                "Fortnox API rate limit exceeded. Please try again later.".to_string(),
-            ),
-            AppError::LockError => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error (Concurrency).".to_string(),
-            ),
-            AppError::MissingAuthCode => (
-                AxumStatusCode::BAD_REQUEST,
-                "Authorization code missing in callback.".to_string(),
-            ),
-            AppError::MissingOrInvalidToken => (
-                AxumStatusCode::UNAUTHORIZED,
-                "Authentication token not available, expired, or refresh failed. Please try authenticating again via /api/fortnox/auth".to_string()
-            ),
-            AppError::SystemTimeError(ref msg) => (
-                 AxumStatusCode::INTERNAL_SERVER_ERROR,
-                 format!("Internal Server Error (Time Calculation: {})", msg)
-             ),
-            AppError::TlsConfig(ref msg) => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                format!("Internal server error (TLS Setup: {}). Check logs.", msg)
-            ),
-            AppError::FortnoxServiceError(ref msg) => (
-                AxumStatusCode::INTERNAL_SERVER_ERROR,
-                format!("Internal Fortnox Service Error: {}", msg)
-            ),
+                (axum_status, user_message)
+            }
+            AppError::FortnoxRateLimited =>
+                (
+                    AxumStatusCode::TOO_MANY_REQUESTS,
+                    "Fortnox API rate limit exceeded. Please try again later.".to_string(),
+                ),
+            AppError::LockError =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error (Concurrency).".to_string(),
+                ),
+            AppError::MissingAuthCode =>
+                (
+                    AxumStatusCode::BAD_REQUEST,
+                    "Authorization code missing in callback.".to_string(),
+                ),
+            AppError::MissingOrInvalidToken =>
+                (
+                    AxumStatusCode::UNAUTHORIZED,
+                    "Authentication token not available, expired, or refresh failed. Please try authenticating again via /api/fortnox/auth".to_string(),
+                ),
+            AppError::SystemTimeError(ref msg) =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Internal Server Error (Time Calculation: {})", msg),
+                ),
+            AppError::TlsConfig(ref msg) =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Internal server error (TLS Setup: {}). Check logs.", msg),
+                ),
+            AppError::FortnoxServiceError(ref msg) =>
+                (
+                    AxumStatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Internal Fortnox Service Error: {}", msg),
+                ),
         };
 
         (
@@ -197,7 +202,6 @@ impl IntoResponse for AppError {
             .into_response()
     }
 }
-
 
 // --- General App Configuration ---
 #[derive(Debug, Clone)]
@@ -251,13 +255,20 @@ async fn main() -> Result<(), AppError> {
     };
     info!("Fortnox Client initialized.");
 
-     // --- Start background token refresh task ---
-     let refresh_client = fortnox_client.clone();
-     tokio::spawn(async move {
+    // --- Start background token refresh task ---
+    let refresh_client = fortnox_client.clone();
+    tokio::spawn(async move {
+        // Create a span for the background task
+        let span = tracing::info_span!(
+            "token_refresh_task",
+            component = "Background task: Refresh token"
+        );
+        let _enter = span.enter();
+
         info!("Starting background token refresh task");
         const CHECK_INTERVAL_SECS_DEFAULT: u64 = 300; // 5 minutes
-        let mut check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT; 
-        
+        let mut check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
+
         loop {
             // Check token status
             match refresh_client.get_token_status().await {
@@ -266,33 +277,36 @@ async fn main() -> Result<(), AppError> {
                         // If token exists
                         if !status.is_valid || status.expires_in_secs < 600 {
                             // Token is invalid or expires in less than 10 minutes
-                            info!("Background task: Token is invalid or expires soon (in {} seconds). Attempting refresh...", status.expires_in_secs);
-                            
+                            info!(
+                                "Token is invalid or expires soon (in {} seconds). Attempting refresh...",
+                                status.expires_in_secs
+                            );
+
                             // Attempt to get a valid token, which triggers refresh if needed
                             match refresh_client.get_valid_access_token().await {
-                                Ok(_) => info!("Background task: Token refreshed successfully"),
+                                Ok(_) => info!("Token refreshed successfully"),
                                 Err(e) => {
-                                    error!("Background task: Failed to refresh token: {}", convert_fortnox_error(e));
+                                    error!("Failed to refresh token: {}", convert_fortnox_error(e));
                                     // Reset check interval to default when refresh fails
                                     check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
                                 }
                             }
                         } else {
-                           // Check again after the token has expired
-                           check_interval_secs = status.expires_in_secs + 10;
-                            info!("Background task: Token is valid for {} more seconds", status.expires_in_secs);
+                            // Check again after the token has expired
+                            check_interval_secs = status.expires_in_secs + 10;
+                            info!("Token is valid for {} more seconds", status.expires_in_secs);
                         }
                     } else {
-                        info!("Background task: No token available. Waiting for user authentication.");
+                        info!("No token available. Waiting for user authentication.");
                     }
-                },
+                }
                 Err(e) => {
-                    error!("Background task: Failed to check token status: {}", e);
+                    error!("Failed to check token status: {}", e);
                     // Also reset interval on token status check failure
                     check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
                 }
-           }
-            
+            }
+
             // Sleep before next check
             sleep(Duration::from_secs(check_interval_secs)).await;
         }
@@ -382,10 +396,13 @@ struct AppState {
 // Updated route handlers to use FortnoxClient
 async fn handle_api_fortnox_auth(State(state): State<AppState>) -> Result<Redirect, AppError> {
     info!("Handling /api/fortnox/auth request, initiating OAuth flow...");
-    
-    let auth_url = state.fortnox_client.generate_auth_url().await
+
+    let auth_url = state
+        .fortnox_client
+        .generate_auth_url()
+        .await
         .map_err(convert_fortnox_error)?;
-    
+
     Ok(Redirect::temporary(&auth_url))
 }
 
@@ -398,11 +415,13 @@ async fn handle_api_fortnox_auth_callback(
     match state.fortnox_client.handle_auth_callback(params).await {
         Ok(_) => {
             info!("Successfully handled Fortnox auth callback.");
-            
-            Ok(Html(
-                "<h1>Success!</h1><p>Authentication successful. Token data saved.</p><p>Server is now authorized with Fortnox API.</p><p>You can close this window.</p>".to_string()
-            ))
-        },
+
+            Ok(
+                Html(
+                    "<h1>Success!</h1><p>Authentication successful. Token data saved.</p><p>Server is now authorized with Fortnox API.</p><p>You can close this window.</p>".to_string()
+                )
+            )
+        }
         Err(e) => {
             error!("Failed to handle Fortnox auth callback: {}", e);
             Err(convert_fortnox_error(e))
@@ -412,7 +431,7 @@ async fn handle_api_fortnox_auth_callback(
 
 async fn handle_status(State(state): State<AppState>) -> Result<Html<String>, AppError> {
     info!("Handling /status request...");
-    
+
     let token_status = match state.fortnox_client.get_token_status().await {
         Ok(status) => format!(
             "Token Status: has_token={}, is_valid={}, expires_in={}s, expires_at={}",
@@ -423,12 +442,12 @@ async fn handle_status(State(state): State<AppState>) -> Result<Html<String>, Ap
             format!("Failed to get token status: {}", e)
         }
     };
-    
+
     let html_body = format!(
         "<h1>Server Status</h1><p>Current Time (Server): {}</p><p>{}</p><p><a href='/api/fortnox/auth'>Authorize with Fortnox</a></p>",
         chrono::Local::now().to_rfc3339(),
         token_status
     );
-    
+
     Ok(Html(html_body))
 }
