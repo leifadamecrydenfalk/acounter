@@ -39,6 +39,9 @@ pub use time_validation::*;
 mod time_validation_tests;
 pub use time_validation_tests::*;
 
+mod fortnox_token_refresh;
+pub use fortnox_token_refresh::*;
+
 // --- Configuration & Constants ---
 
 const INFO_CACHE_FILE_NAME: &str = "fortnox_info_cache.json";
@@ -210,6 +213,7 @@ struct AppConfig {
     key_path: String,
     // Add other non-Fortnox config here if needed
 }
+
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     // --- Setup ---
@@ -257,60 +261,8 @@ async fn main() -> Result<(), AppError> {
 
     // --- Start background token refresh task ---
     let refresh_client = fortnox_client.clone();
-    tokio::spawn(async move {
-        // Create a span for the background task
-        let span = tracing::info_span!(
-            "token_refresh_task",
-            component = "Background task: Refresh token"
-        );
-        let _enter = span.enter();
-
-        info!("Starting background token refresh task");
-        const CHECK_INTERVAL_SECS_DEFAULT: u64 = 300; // 5 minutes
-        let mut check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
-
-        loop {
-            // Check token status
-            match refresh_client.get_token_status().await {
-                Ok(status) => {
-                    if status.has_token {
-                        // If token exists
-                        if !status.is_valid || status.expires_in_secs < 600 {
-                            // Token is invalid or expires in less than 10 minutes
-                            info!(
-                                "Token is invalid or expires soon (in {} seconds). Attempting refresh...",
-                                status.expires_in_secs
-                            );
-
-                            // Attempt to get a valid token, which triggers refresh if needed
-                            match refresh_client.get_valid_access_token().await {
-                                Ok(_) => info!("Token refreshed successfully"),
-                                Err(e) => {
-                                    error!("Failed to refresh token: {}", convert_fortnox_error(e));
-                                    // Reset check interval to default when refresh fails
-                                    check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
-                                }
-                            }
-                        } else {
-                            // Check again after the token has expired
-                            check_interval_secs = status.expires_in_secs + 10;
-                            info!("Token is valid for {} more seconds", status.expires_in_secs);
-                        }
-                    } else {
-                        info!("No token available. Waiting for user authentication.");
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to check token status: {}", e);
-                    // Also reset interval on token status check failure
-                    check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
-                }
-            }
-
-            // Sleep before next check
-            sleep(Duration::from_secs(check_interval_secs)).await;
-        }
-    });
+    // Spawn the function from the dedicated module
+    tokio::spawn(run_background_refresh(refresh_client));
 
     let time_validation_service = Arc::new(Mutex::new(TimeValidationService::new()));
 
@@ -363,7 +315,7 @@ async fn main() -> Result<(), AppError> {
 }
 
 // Helper function to convert FortnoxError to AppError
-fn convert_fortnox_error(e: FortnoxError) -> AppError {
+pub fn convert_fortnox_error(e: FortnoxError) -> AppError {
     match e {
         FortnoxError::RequestFailed(req_err) => AppError::Reqwest(req_err),
         FortnoxError::JsonError(json_err) => AppError::SerdeJson(json_err),
@@ -388,9 +340,9 @@ fn convert_fortnox_error(e: FortnoxError) -> AppError {
 
 // Updated AppState to use FortnoxClient
 #[derive(Clone)]
-struct AppState {
-    fortnox_client: Arc<FortnoxClient>,
-    time_validation_service: Arc<Mutex<TimeValidationService>>,
+pub struct AppState {
+    pub fortnox_client: Arc<FortnoxClient>,
+    pub time_validation_service: Arc<Mutex<TimeValidationService>>,
 }
 
 // Updated route handlers to use FortnoxClient
