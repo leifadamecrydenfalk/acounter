@@ -254,43 +254,49 @@ async fn main() -> Result<(), AppError> {
      // --- Start background token refresh task ---
      let refresh_client = fortnox_client.clone();
      tokio::spawn(async move {
-         info!("Starting background token refresh task");
-         let mut check_interval_secs = 300; // Check every 5 minutes by default
-         
-         loop {
-             // Check token status
-             match refresh_client.get_token_status().await {
-                 Ok(status) => {
-                     if status.has_token {
-                         // If token exists
-                         if !status.is_valid || status.expires_in_secs < 600 {
-                             // Token is invalid or expires in less than 10 minutes
-                             info!("Background task: Token is invalid or expires soon (in {} seconds). Attempting refresh...", status.expires_in_secs);
-                             
-                             // Attempt to get a valid token, which triggers refresh if needed
-                             match refresh_client.get_valid_access_token().await {
-                                 Ok(_) => info!("Background task: Token refreshed successfully"),
-                                 Err(e) => error!("Background task: Failed to refresh token: {}", convert_fortnox_error(e)),
-                             }
-                         } else {
-                            // Check again after the token has expired
-                            check_interval_secs = status.expires_in_secs + 10;
-                             info!("Background task: Token is valid for {} more seconds", status.expires_in_secs);
-                         }
-                     } else {
-                         info!("Background task: No token available. Waiting for user authentication.");
-                     }
-                 },
-                 Err(e) => {
-                     error!("Background task: Failed to check token status: {}", e);
-                 }
-            }
-             
-             // Sleep before next check
-             sleep(Duration::from_secs(check_interval_secs)).await;
-         }
-     });
-     info!("Background token refresh task started.");
+        info!("Starting background token refresh task");
+        const CHECK_INTERVAL_SECS_DEFAULT: u64 = 300; // 5 minutes
+        let mut check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT; 
+        
+        loop {
+            // Check token status
+            match refresh_client.get_token_status().await {
+                Ok(status) => {
+                    if status.has_token {
+                        // If token exists
+                        if !status.is_valid || status.expires_in_secs < 600 {
+                            // Token is invalid or expires in less than 10 minutes
+                            info!("Background task: Token is invalid or expires soon (in {} seconds). Attempting refresh...", status.expires_in_secs);
+                            
+                            // Attempt to get a valid token, which triggers refresh if needed
+                            match refresh_client.get_valid_access_token().await {
+                                Ok(_) => info!("Background task: Token refreshed successfully"),
+                                Err(e) => {
+                                    error!("Background task: Failed to refresh token: {}", convert_fortnox_error(e));
+                                    // Reset check interval to default when refresh fails
+                                    check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
+                                }
+                            }
+                        } else {
+                           // Check again after the token has expired
+                           check_interval_secs = status.expires_in_secs + 10;
+                            info!("Background task: Token is valid for {} more seconds", status.expires_in_secs);
+                        }
+                    } else {
+                        info!("Background task: No token available. Waiting for user authentication.");
+                    }
+                },
+                Err(e) => {
+                    error!("Background task: Failed to check token status: {}", e);
+                    // Also reset interval on token status check failure
+                    check_interval_secs = CHECK_INTERVAL_SECS_DEFAULT;
+                }
+           }
+            
+            // Sleep before next check
+            sleep(Duration::from_secs(check_interval_secs)).await;
+        }
+    });
 
     let time_validation_service = Arc::new(Mutex::new(TimeValidationService::new()));
 
