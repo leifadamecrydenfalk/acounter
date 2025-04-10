@@ -8,8 +8,9 @@ use axum::{
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{Client, Method, RequestBuilder};
+use reqwest::{Client, Method, RequestBuilder, StatusCode as ReqwestStatusCode};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{
     env,
     fs::{self, File},
@@ -28,16 +29,12 @@ use url::Url;
 
 use axum_server::tls_rustls::RustlsConfig;
 
-mod fortnox_info;
-pub use fortnox_info::*;
 
 // --- Configuration & Constants ---
 
 const INFO_CACHE_FILE_NAME: &str = "fortnox_info_cache.json";
-const INFO_CACHE_DURATION_SECS: u64 = 24 * 60 * 60; 
-
-// Moved Fortnox URLs into FortnoxService as associated constants
-const TOKEN_FILE_NAME: &str = "fortnox_token.json"; // Just the filename
+const INFO_CACHE_DURATION_SECS: u64 = 24 * 60 * 60;
+const TOKEN_FILE_NAME: &str = "fortnox_token.json";
 
 // --- !! SECURITY WARNING !! ---
 // Storing tokens in a plain text file is NOT recommended for production.
@@ -45,7 +42,24 @@ const TOKEN_FILE_NAME: &str = "fortnox_token.json"; // Just the filename
 // or OS-level secure storage. Ensure file permissions are restrictive.
 // --- !! SECURITY WARNING !! ---
 
+
 // --- Error Handling (Mostly Unchanged, added FortnoxServiceError variant) ---
+
+// --- Fortnox Specific Error Payload Parsing ---
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")] // Assuming PascalCase based on the example
+struct FortnoxErrorInformation {
+    error: Option<serde_json::Value>, // Use Value for flexibility (could be int or string)
+    message: Option<String>,
+    code: Option<serde_json::Value>, // Use Value for flexibility
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")] // Assuming root is PascalCase
+struct FortnoxErrorPayload {
+    #[serde(rename = "ErrorInformation")]
+    error_information: FortnoxErrorInformation,
+}
 
 #[derive(Error, Debug)]
 enum AppError {
@@ -56,28 +70,37 @@ enum AppError {
     #[error("URL parsing failed: {0}")]
     UrlParse(#[from] url::ParseError),
     #[error("JSON serialization/deserialization failed: {0}")]
-    SerdeJson(#[from] serde_json::Error),
+    SerdeJson(#[from] serde_json::Error), // Correct type
     #[error("File I/O error: {0}")]
     Io(#[from] std::io::Error),
     #[error("OAuth state mismatch")]
     OAuthStateMismatch,
-    #[error("Fortnox API returned an error: {status} - {message:?}")]
+
+    // Enhanced Fortnox API Error
+    #[error("Fortnox API Error: Status={status}, Parsed={parsed_error:?}, Raw={raw_message:?}")]
     FortnoxApiError {
-        status: reqwest::StatusCode,
-        message: Option<String>,
+        status: ReqwestStatusCode,
+        parsed_error: Option<FortnoxErrorPayload>, // Store parsed structure
+        raw_message: Option<String>,             // Keep raw as fallback
     },
+    #[error("Fortnox API rate limit exceeded (Status 429)")]
+    FortnoxRateLimited, // Specific variant for rate limiting
+
     #[error("Failed to acquire lock")]
-    LockError, // Potentially removable if Mutex contention isn't expected
+    LockError,
     #[error("Authorization code not received")]
     MissingAuthCode,
     #[error("Access token not available or refresh failed")]
-    MissingOrInvalidToken, // Renamed for clarity
+    MissingOrInvalidToken,
     #[error("System time error: {0}")]
-    SystemTimeError(String), // Added for time errors
-    #[error("TLS configuration error: {0}")] // Added for TLS errors
+    SystemTimeError(String),
+    #[error("TLS configuration error: {0}")]
     TlsConfig(String),
-    #[error("Fortnox Service Error: {0}")] // Wrapper for internal service errors
-    FortnoxServiceError(String), // Can wrap specific internal errors if needed
+    #[error("Fortnox Service Error: {0}")]
+    FortnoxServiceError(String),
+    // Added variant for specific deserialization issue on success response
+    #[error("Failed to deserialize successful response body: {0}")]
+    SuccessfulResponseDeserialization(reqwest::Error),
 }
 
 // Map AppError to Axum's IntoResponse
@@ -86,40 +109,52 @@ impl IntoResponse for AppError {
         error!("Error occurred: {}", self); // Log the original error
 
         let (status_code, error_message) = match self {
-            AppError::MissingEnvVar(ref _var) => (
+           
+            // Handling for the new variant
+            AppError::SuccessfulResponseDeserialization(ref _e) => (
                 AxumStatusCode::INTERNAL_SERVER_ERROR,
-                format!("Configuration error."),
+                "Internal server error (Unexpected response format from Fortnox). Check logs.".to_string()
+            ),
+
+            // Ensure all existing mappings are correct
+             AppError::MissingEnvVar(ref _var) => (
+                AxumStatusCode::INTERNAL_SERVER_ERROR,
+                "Configuration error.".to_string(),
             ),
             AppError::Reqwest(ref _e) => (
                 AxumStatusCode::BAD_GATEWAY,
-                format!("External request failed."),
+                "External request failed.".to_string(),
             ),
             AppError::UrlParse(_) => (
                 AxumStatusCode::INTERNAL_SERVER_ERROR,
-                format!("Internal server error (URL parsing)."),
+                "Internal server error (URL parsing).".to_string(),
             ),
             AppError::SerdeJson(_) => (
                 AxumStatusCode::INTERNAL_SERVER_ERROR,
-                format!("Internal server error (JSON processing)."),
+                "Internal server error (JSON processing).".to_string(),
             ),
             AppError::Io(_) => (
                 AxumStatusCode::INTERNAL_SERVER_ERROR,
-                format!("Internal server error (File I/O). Check logs."),
+                "Internal server error (File I/O). Check logs.".to_string(),
             ),
             AppError::OAuthStateMismatch => (
                 AxumStatusCode::BAD_REQUEST,
                 "OAuth state validation failed.".to_string(),
             ),
-            AppError::FortnoxApiError { status, ref message } => {
+            AppError::FortnoxApiError { status, .. } => { // Simplified match arm
                 let axum_status = AxumStatusCode::from_u16(status.as_u16())
                     .unwrap_or(AxumStatusCode::INTERNAL_SERVER_ERROR);
+
                 let user_message = format!(
                     "Failed to communicate with Fortnox API (Status {}). Details logged.",
                     status.as_u16()
                 );
-                error!("Fortnox API Error Details: Status: {}, Message: {:?}", status, message);
-                (axum_status, user_message)
-            }
+                 (axum_status, user_message)
+            },
+            AppError::FortnoxRateLimited => (
+                AxumStatusCode::TOO_MANY_REQUESTS,
+                "Fortnox API rate limit exceeded. Please try again later.".to_string(),
+            ),
             AppError::LockError => (
                 AxumStatusCode::INTERNAL_SERVER_ERROR,
                 "Internal server error (Concurrency).".to_string(),
@@ -129,20 +164,20 @@ impl IntoResponse for AppError {
                 "Authorization code missing in callback.".to_string(),
             ),
             AppError::MissingOrInvalidToken => (
-                (AxumStatusCode::UNAUTHORIZED,
-                "Authentication token not available, expired, or refresh failed. Please try authenticating again via /".to_string())
+                AxumStatusCode::UNAUTHORIZED,
+                "Authentication token not available, expired, or refresh failed. Please try authenticating again via /api/fortnox/auth".to_string()
             ),
-             AppError::SystemTimeError(ref msg) => (
+            AppError::SystemTimeError(ref msg) => (
                  AxumStatusCode::INTERNAL_SERVER_ERROR,
                  format!("Internal Server Error (Time Calculation: {})", msg)
              ),
-             AppError::TlsConfig(ref msg) => ( // Added TLS error handling
+            AppError::TlsConfig(ref msg) => (
                 AxumStatusCode::INTERNAL_SERVER_ERROR,
                 format!("Internal server error (TLS Setup: {}). Check logs.", msg)
             ),
-            AppError::FortnoxServiceError(ref msg) => ( // Added Fortnox Service Error
+            AppError::FortnoxServiceError(ref msg) => (
                 AxumStatusCode::INTERNAL_SERVER_ERROR,
-                format!("Internal Fortnox Service Error: {}", msg) // Keep internal details generic for user
+                format!("Internal Fortnox Service Error: {}", msg)
             ),
         };
 
@@ -205,7 +240,200 @@ impl StoredTokenData {
     }
 }
 
-// --- Fortnox API Response Structures (Unchanged) ---
+// --- Fortnox API Response Structures ---
+
+// Structures for GET /3/employees
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct EmployeeListItem {
+    #[serde(rename = "@url")]
+    pub url: Option<String>,
+    #[serde(rename = "EmployeeId")]
+    pub employee_id: String, // Key identifier
+    #[serde(rename = "PersonalIdentityNumber")]
+    pub personal_identity_number: Option<String>,
+    #[serde(rename = "FirstName")]
+    pub first_name: Option<String>,
+    #[serde(rename = "LastName")]
+    pub last_name: Option<String>,
+    #[serde(rename = "FullName")]
+    pub full_name: Option<String>,
+    pub email: Option<String>,
+    // Add other fields if needed later
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct EmployeeListResponse {
+    pub employees: Vec<EmployeeListItem>,
+}
+
+// Structures for GET /3/customers
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct CustomerListItem {
+    #[serde(rename = "@url")]
+    pub url: Option<String>,
+    #[serde(rename = "CustomerNumber")]
+    pub customer_number: String, // Key identifier
+    pub name: String,
+    #[serde(rename = "OrganisationNumber")]
+    pub organisation_number: Option<String>,
+    #[serde(rename = "Address1")]
+    pub address1: Option<String>,
+    #[serde(rename = "ZipCode")]
+    pub zip_code: Option<String>,
+    pub city: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    // Add other fields if needed later
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct CustomerListResponse {
+    pub customers: Vec<CustomerListItem>,
+}
+
+// Structures for GET /3/projects (Updated to match response schema)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ProjectListItem {
+    // Renamed from Project to avoid conflict and match list nature
+    #[serde(rename = "@url")]
+    pub url: Option<String>,
+    #[serde(rename = "ProjectNumber")]
+    pub project_number: String, // Key identifier
+    pub description: String,    // Project Name/Description
+    pub status: Option<String>, // (enum: NOTSTARTED, ONGOING, COMPLETED)
+    #[serde(rename = "StartDate")]
+    pub start_date: Option<String>, // (date)
+    #[serde(rename = "EndDate")]
+    pub end_date: Option<String>, // (date)
+    #[serde(rename = "ProjectLeader")]
+    pub project_leader_id: Option<String>, // Assuming this is an ID, adjust if it's name
+    #[serde(rename = "CustomerNumber")]
+    // Add CustomerNumber as it exists in the original Project struct context
+    pub customer_number: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ProjectListResponse {
+    // Renamed from ProjectResponse
+    pub projects: Vec<ProjectListItem>,
+    #[serde(rename = "@TotalResources")]
+    pub total_resources: Option<i32>,
+    #[serde(rename = "@TotalPages")]
+    pub total_pages: Option<i32>,
+    #[serde(rename = "@CurrentPage")]
+    pub current_page: Option<i32>,
+}
+
+// Structures for GET /3/articles (Services)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ArticleListItem {
+    #[serde(rename = "@url")]
+    pub url: Option<String>,
+    #[serde(rename = "ArticleNumber")]
+    pub article_number: String, // Key identifier (e.g., "16", "52")
+    pub description: String,  // Service/Article Name
+    pub unit: Option<String>, // e.g., "tim" (hours)
+    #[serde(rename = "SalesPrice")]
+    pub sales_price: Option<String>, // Price as a string
+    #[serde(rename = "PurchasePrice")]
+    pub purchase_price: Option<String>, // Cost as a string
+    #[serde(rename = "Active")]
+    pub active: Option<bool>,
+    // Add other fields if needed later
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ArticleListResponse {
+    pub articles: Vec<ArticleListItem>,
+}
+
+// Structures for GET /3/scheduletimes/{EmployeeId}/{Date}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ScheduleTime {
+    #[serde(rename = "EmployeeId")]
+    pub employee_id: String,
+    #[serde(rename = "Date")]
+    pub date: String, // (date)
+    #[serde(rename = "ScheduleId")]
+    pub schedule_id: Option<String>, // ID of the schedule template used
+    pub hours: String, // Scheduled hours for the day (e.g., "8.00") - Keep as String due to source format
+                       // Other fields (IWH1-5) exist but less relevant
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ScheduleTimeResponse {
+    #[serde(rename = "ScheduleTime")]
+    pub schedule_time: ScheduleTime,
+}
+
+// Structures for GET /api/time/registrations-v2
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")] // Note: This API uses camelCase
+pub struct TimeRegCustomerInfo {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeRegProjectInfo {
+    pub id: String,
+    pub description: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeRegServiceInfo {
+    pub id: String,
+    pub description: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeRegCodeInfo {
+    pub code: String, // e.g., "TID", "FLX", "SEM"
+    pub name: String,
+    #[serde(rename = "type")] // Use rename for reserved keyword
+    pub type_: String, // (enum: WORK, ABSENCE) - use type_ or rename
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DetailedRegistration {
+    pub id: String, // (uuid)
+    #[serde(rename = "userId")]
+    pub user_id: String, // Fortnox User ID
+    pub worked_date: String, // (date)
+    pub worked_hours: f64, // Use f64 for hours
+    pub charge_hours: f64,
+    pub start_time: Option<String>, // (date-time) ISO 8601 format (e.g., "2023-10-27T08:00:00Z")
+    pub stop_time: Option<String>,  // (date-time)
+    pub non_invoiceable: bool,
+    pub note: Option<String>,
+    pub invoice_text: Option<String>,
+    pub customer: Option<TimeRegCustomerInfo>, // Optional because absence might not have customer
+    pub project: Option<TimeRegProjectInfo>,   // Optional
+    pub service: Option<TimeRegServiceInfo>,   // Optional (e.g., for absence)
+    pub registration_code: TimeRegCodeInfo,
+    pub child_id: Option<String>,      // (uuid)
+    pub document_id: Option<i64>,      // (int64)
+    pub document_type: Option<String>, // (enum: order, invoice)
+    pub invoice_basis_id: Option<i64>, // (int64)
+    pub unit_cost: Option<f64>,        // Use f64 for currency/cost/price
+    pub unit_price: Option<f64>,
+    // Other fields omitted for brevity: created, createdBy, modified, modifiedBy, version
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 struct Project {
@@ -231,15 +459,55 @@ struct ProjectResponse {
     current_page: Option<i32>,
 }
 
-// --- Fortnox API Client (Simplified) ---
-// Now created by FortnoxService with a valid token
+// --- Structure for Cached Data ---
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CachedInfo {
+    pub last_updated_unix_secs: u64,
+}
+
+impl CachedInfo {
+    /// Checks if the cache is older than the specified duration.
+    pub fn is_stale(&self, max_age_secs: u64) -> Result<bool, AppError> {
+        let now_unix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| AppError::SystemTimeError(e.to_string()))?
+            .as_secs();
+        let cache_age = now_unix.saturating_sub(self.last_updated_unix_secs);
+        Ok(cache_age > max_age_secs)
+    }
+
+    /// Creates a new CachedInfo with the current time.
+    pub fn new() -> Result<Self, AppError> {
+        Ok(Self {
+            last_updated_unix_secs: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|e| AppError::SystemTimeError(e.to_string()))?
+                .as_secs(),
+        })
+    }
+}
+
+/// Structure containing all the data fetched for the info page cache.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FortnoxInfoCacheData {
+    pub info: CachedInfo,
+    pub employees: Vec<EmployeeListItem>,
+    pub customers: Vec<CustomerListItem>,
+    pub projects: Vec<ProjectListItem>,
+    pub articles: Vec<ArticleListItem>,
+    // Add other lists here if needed in the future (e.g., registration codes)
+}
+
+// --- Fortnox API Client ---
+// FortnoxService with a valid token
 #[derive(Clone)]
 struct FortnoxApiClient {
     http_client: Client,
     access_token: String, // Holds the *valid* access token
     base_url: String,
-    client_secret: String, // Still needed for headers on some endpoints? Keep for now.
+    client_secret: String, // Still needed for headers on some endpoints to retrieve access token? Keep for now.
 }
+
 
 impl FortnoxApiClient {
     // Constructor now takes the components directly
@@ -257,70 +525,184 @@ impl FortnoxApiClient {
         }
     }
 
-    // build_request uses the provided token and secret
-    fn build_request(&self, method: Method, endpoint: &str) -> RequestBuilder {
+    /*
+    // If there is no access token available, use this to retrieve it using the client secret
+    fn build_auth_request(&self, method: Method, endpoint: &str) -> RequestBuilder {
         let url = format!("{}{}", self.base_url, endpoint);
         self.http_client
             .request(method, url)
-            .header(AUTHORIZATION, format!("Bearer {}", self.access_token))
-            // Note: Fortnox documentation is a bit inconsistent. Sometimes Access-Token/Client-Secret
-            // headers are mentioned, sometimes just Bearer. Sticking with Bearer + headers for now.
-            // If you find Bearer alone works, you can remove these extra headers and the client_secret field.
             .header("Client-Secret", self.client_secret.clone())
-            .header("Access-Token", self.access_token.clone())
+            .header(ACCEPT, "application/json")
+            .header(CONTENT_TYPE, "application/json")
+    }
+    */
+
+    fn build_request(&self, method: Method, endpoint: &str) -> RequestBuilder {
+        let url = format!("{}{}", self.base_url, endpoint);
+        self.http_client
+            .request(method, &url)
+            .header(AUTHORIZATION, format!("Bearer {}", self.access_token))
             .header(ACCEPT, "application/json")
             .header(CONTENT_TYPE, "application/json")
     }
 
-    // send_and_deserialize remains the same
     async fn send_and_deserialize<T: DeserializeOwned>(
         &self,
         request_builder: RequestBuilder,
     ) -> Result<T, AppError> {
         let response = request_builder.send().await?;
         let status = response.status();
+
         if status.is_success() {
-            response.json::<T>().await.map_err(AppError::from)
-        } else {
-            let error_text = response.text().await.ok();
-            error!(
-                "Fortnox API request failed. Status: {}, Body: {:?}",
-                status, error_text
-            );
-            Err(AppError::FortnoxApiError {
-                status,
-                message: error_text,
+            // Success Path: Attempt to deserialize the successful response
+            response.json::<T>().await.map_err(|e: reqwest::Error| {
+                // Log the specific error
+                error!(
+                    "Failed to deserialize successful Fortnox response (Status: {}): {}",
+                    status, e
+                );
+                // Use the new specific error variant
+                AppError::SuccessfulResponseDeserialization(e)
             })
+        } else {
+            // Error Path: Handle non-success status codes
+            let raw_body_text = response.text().await.ok(); // Read body as text first
+
+            // Attempt to parse the known Fortnox JSON error structure
+            let parsed_error: Option<FortnoxErrorPayload> = raw_body_text
+                .as_ref()
+                .and_then(|body| serde_json::from_str(body).ok());
+
+            if parsed_error.is_some() {
+                 warn!( // Log as warn, the error type carries the severity
+                    "Fortnox API request failed. Status: {}, Parsed Body: {:?}",
+                    status, parsed_error
+                );
+            } else {
+                 warn!( // Log as warn, the error type carries the severity
+                    "Fortnox API request failed. Status: {}, Raw Body: {:?} (Could not parse as FortnoxErrorPayload)",
+                    status, raw_body_text
+                );
+            }
+
+            // Map specific status codes to specific AppError variants
+            match status {
+                ReqwestStatusCode::TOO_MANY_REQUESTS => Err(AppError::FortnoxRateLimited),
+                _ => Err(AppError::FortnoxApiError {
+                    status,
+                    parsed_error, // Pass the Option<FortnoxErrorPayload>
+                    raw_message: raw_body_text, // Pass the Option<String>
+                }),
+            }
         }
     }
 
-    // get remains the same
+    // --- get, fetch_ methods remain the same ---
     pub async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T, AppError> {
-        let request = self.build_request(Method::GET, endpoint);
+        let corrected_endpoint = if endpoint.starts_with('/') {
+            endpoint
+        } else {
+            warn!(
+                "Endpoint '{}' passed to get() did not start with '/'. Prepending.",
+                endpoint
+            );
+            &format!("/{}", endpoint)
+        };
+        let request = self.build_request(Method::GET, corrected_endpoint);
         self.send_and_deserialize(request).await
     }
 
-    // Specific API calls remain the same
     pub async fn fetch_projects(&self) -> Result<ProjectResponse, AppError> {
         info!("Fetching projects via API client...");
         self.get::<ProjectResponse>("/projects").await
     }
 
-        // Fetches all employees
-        pub async fn fetch_employees(&self) -> Result<EmployeeResponse, AppError> {
-            info!("Fetching employees via API client...");
-            // Note: Fortnox might paginate. For simplicity, this fetches the first page.
-            // Implement pagination handling if you have many employees.
-            self.get::<EmployeeResponse>("/employees").await
+     pub async fn fetch_employees(&self) -> Result<EmployeeListResponse, AppError> {
+        info!("Fetching employees via API client...");
+        self.get::<EmployeeListResponse>("/employees").await
+    }
+
+    pub async fn fetch_customers(&self) -> Result<CustomerListResponse, AppError> {
+        info!("Fetching customers via API client...");
+        self.get::<CustomerListResponse>("/customers").await
+    }
+
+    pub async fn fetch_projects_list(&self) -> Result<ProjectListResponse, AppError> {
+        info!("Fetching projects list via API client...");
+        self.get::<ProjectListResponse>("/projects").await
+    }
+
+     pub async fn fetch_articles(&self) -> Result<ArticleListResponse, AppError> {
+        info!("Fetching articles/services via API client...");
+        self.get::<ArticleListResponse>("/articles").await
+    }
+
+    // Method to fetch a specific Article/Service
+    pub async fn fetch_article_by_number(
+        &self,
+        article_number: &str,
+    ) -> Result<ArticleListItem, AppError> {
+        #[derive(Serialize, Deserialize, Debug, Clone)]
+        #[serde(rename_all = "PascalCase")]
+        struct SingleArticleResponse {
+            Article: ArticleListItem,
         }
-    
-        // Fetches Salary Codes (often used for time/absence registration)
-        pub async fn fetch_salary_codes(&self) -> Result<SalaryCodeResponse, AppError> {
-            info!("Fetching salary codes via API client...");
-            // Note: Check Fortnox docs for endpoint name and potential filters
-            // (e.g., ?filter=salarycodetype&salarycodetype=ARBETTID or FRÅNVARO)
-            self.get::<SalaryCodeResponse>("/salarycodes").await
+
+        info!("Fetching article with number: {}", article_number);
+        let endpoint = format!("/articles/{}", article_number); // No /3 needed
+        let response = self.get::<SingleArticleResponse>(&endpoint).await?;
+        Ok(response.Article)
+    }
+
+    // Method to fetch Schedule Time for a specific employee and date
+    pub async fn fetch_schedule_time(
+        &self,
+        employee_id: &str,
+        date: &str, // Expects "YYYY-MM-DD" format
+    ) -> Result<ScheduleTimeResponse, AppError> {
+        info!(
+            "Fetching schedule time for employee {} on date {}",
+            employee_id, date
+        );
+        let endpoint = format!("/scheduletimes/{}/{}", employee_id, date); // No /3 needed
+        self.get::<ScheduleTimeResponse>(&endpoint).await
+    }
+
+    // Method to fetch Time/Absence Registrations using V2 endpoint
+    // This one needs special handling as it DOES NOT use the /3 base path
+    pub async fn fetch_time_registrations_v2(
+        &self,
+        params: Option<HashMap<String, String>>, // Use HashMap for flexible query params
+    ) -> Result<Vec<DetailedRegistration>, AppError> {
+        info!("Fetching time registrations (V2) via API client...");
+        // V2 API uses a different base path!
+        const TIME_V2_API_BASE_URL: &str = "https://api.fortnox.se"; // Base *without* /3
+        let endpoint = "/api/time/registrations-v2";
+        let url = format!("{}{}", TIME_V2_API_BASE_URL, endpoint); // Construct full URL manually
+
+        let mut request_builder = self
+            .http_client
+            .request(Method::GET, url) // Use the manually constructed URL
+            .header(AUTHORIZATION, format!("Bearer {}", self.access_token))
+            .header(ACCEPT, "application/json");
+
+        // Add query parameters if provided
+        if let Some(query_params) = params {
+            let mut query_pairs = Vec::new();
+            for (key, value) in query_params {
+                query_pairs.push((key, value));
+            }
+            if !query_pairs.is_empty() {
+                // Only add .query if there are params
+                request_builder = request_builder.query(&query_pairs);
+                info!("Added query parameters: {:?}", query_pairs);
+            }
         }
+
+        // Use send_and_deserialize helper
+        self.send_and_deserialize::<Vec<DetailedRegistration>>(request_builder)
+            .await
+    }
 }
 
 // --- Fortnox Service ---
@@ -580,36 +962,63 @@ impl FortnoxService {
         let encoded_credentials = BASE64_STANDARD.encode(credentials);
         let auth_header_value = format!("Basic {}", encoded_credentials);
 
+        // This 'params' variable holds the data to be sent in the form body
         let params = [
             ("grant_type", "authorization_code"),
             ("code", code),
             ("redirect_uri", &self.config.redirect_uri),
         ];
 
-        let response = self
+        // Build the request
+        let request_builder = self
             .http_client
             .post(Self::TOKEN_URL) // Use associated const
             .header(AUTHORIZATION, auth_header_value)
             .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-            .form(&params)
-            .send()
-            .await?;
+            .form(&params); 
+
+        // Send the request and await the response
+        let response = request_builder.send().await?; // Added ? for potential reqwest error
 
         if response.status().is_success() {
+            info!("Token exchange request successful (Status: {}).", response.status());
+            // Success path - deserialize TokenResponse
             response
                 .json::<TokenResponse>()
-                .await
-                .map_err(AppError::from)
+                .await // Await the json deserialization
+                .map_err(|e| {
+                    // Handle potential deserialization error even on success here
+                    error!("Successfully received token response, but failed to deserialize it: {}", e);
+                    // Map reqwest error during json() to our specific variant
+                    AppError::SuccessfulResponseDeserialization(e)
+                })
         } else {
+            // Error path - construct FortnoxApiError
             let status = response.status();
-            let error_text = response.text().await.ok();
+            // Read the raw body text first. Use await and handle potential error.
+            let error_text = response.text().await.ok(); // .ok() converts Result<String, Error> to Option<String>
+
             error!(
                 "Failed to exchange code for token. Status: {}, Body: {:?}",
                 status, error_text
             );
+
+            // Attempt to parse the error body as FortnoxErrorPayload
+            // Use 'and_then' to avoid parsing if error_text is None
+            let parsed_error: Option<FortnoxErrorPayload> = error_text
+                 .as_ref() // Borrow the Option<String>
+                 .and_then(|body| serde_json::from_str(body).map_err(|e| {
+                     // Log if JSON parsing of the error body fails
+                     warn!("Could not parse Fortnox error response body as JSON: {}", e);
+                     e // keep the error type for map_err
+                 }).ok()); // Convert Result<_, serde_json::Error> to Option<_>
+
+
+            // Provide all required fields for FortnoxApiError
             Err(AppError::FortnoxApiError {
                 status,
-                message: error_text,
+                parsed_error, // Provide the parsed error (will be None if parsing failed or text read failed)
+                raw_message: error_text, // Provide the raw text (will be None if text read failed)
             })
         }
     }
@@ -635,7 +1044,8 @@ impl FortnoxService {
             .append_pair("scope", &self.config.scopes)
             .append_pair("state", &random_state)
             .append_pair("access_type", "offline")
-            .append_pair("response_type", "code");
+            .append_pair("response_type", "code")
+            .append_pair("account_type", "service");
 
         info!("Redirecting user to Fortnox: {}", auth_url);
         Ok(Redirect::temporary(auth_url.as_str()))
@@ -727,141 +1137,116 @@ impl FortnoxService {
          }
     }
 
-    /// Fetches personnel (employees) and constructs time registration information.
-    /// Uses a file cache to avoid frequent API calls.
-    pub async fn get_personnel_and_time_info(&self)
-        -> Result<(Vec<Employee>, TimeRegistrationInfo), AppError>
-    {
-        info!("Attempting to get personnel and time registration info...");
-
-        // 1. Try loading from cache
-        match self.load_info_cache() {
-            Ok(Some(cached_data)) => {
-                // 2. Check if cache is stale
-                match cached_data.is_stale(INFO_CACHE_DURATION_SECS) {
-                    Ok(false) => {
-                        info!("Valid info cache found. Returning cached data.");
-                        return Ok((cached_data.employees, cached_data.time_info));
-                    }
-                    Ok(true) => {
-                        info!("Info cache found but is stale (older than {} seconds). Refetching.", INFO_CACHE_DURATION_SECS);
-                        // Proceed to fetch fresh data
-                    }
-                    Err(e) => {
-                        warn!("Failed to check cache staleness: {}. Refetching.", e);
-                        // Proceed to fetch fresh data
-                    }
-                }
-            }
-            Ok(None) => {
-                info!("No info cache found. Fetching fresh data.");
-                // Proceed to fetch fresh data
-            }
-            Err(e) => {
-                // Error loading cache (I/O or parse error handled inside load_info_cache)
-                warn!("Failed to load or parse info cache: {}. Refetching.", e);
-                 // Proceed to fetch fresh data
-            }
-        }
-
-        // 3. Fetch fresh data from API if cache miss or stale
-        info!("Fetching fresh personnel and time info from Fortnox API...");
-        let api_client = self.get_api_client().await?;
-
-        // Fetch Employees
-        let employee_response = api_client.fetch_employees().await?;
-        let employees = employee_response.employees;
-        info!("Fetched {} employees.", employees.len());
-
-        // Fetch Salary Codes
-        let salary_code_response = api_client.fetch_salary_codes().await?;
-        let salary_codes = salary_code_response.salary_codes;
-        info!("Fetched {} salary codes.", salary_codes.len());
-
-        // Construct the TimeRegistrationInfo (same as before)
-        let time_info = TimeRegistrationInfo {
-             mandatory_for_worked_time: vec![
-                "Date".to_string(), "Client (Customer)".to_string(), "Project".to_string(),
-                "Service".to_string(), "Registration Code (Salary Code)".to_string(),
-                "Hours Worked".to_string(), "(Note only for foreign public holidays)".to_string(),
-            ],
-            mandatory_for_absence: vec![
-                "Date".to_string(), "Registration Code (Salary Code)".to_string(),
-                "Number of hours OR Check box for full day".to_string(),
-            ],
-            other_notes: "Fields like cost center, invoice text, and note generally do not need to be filled in – but it's okay if they are used.".to_string(),
-            available_salary_codes: salary_codes,
-        };
-
-        // 4. Try to save the fresh data to the cache
-        match self.save_info_cache(&employees, &time_info) {
-            Ok(_) => info!("Successfully updated info cache file."),
-            Err(e) => {
-                // Log error but don't fail the request - return the fresh data anyway
-                error!("Failed to save updated info cache: {}", e);
-            }
-        }
-
-        // 5. Return the freshly fetched data
-        Ok((employees, time_info))
-    }
-
-
-    /// Loads cached info data from the configured file path.
-    fn load_info_cache(&self) -> Result<Option<CachedInfo>, AppError> {
+    /// Loads the combined Fortnox info data from the cache file.
+    fn load_info_cache(&self) -> Result<Option<FortnoxInfoCacheData>, AppError> {
         let path = &self.config.info_cache_path;
         if !path.exists() {
             info!("Info cache file {} not found.", path.display());
             return Ok(None);
         }
-        // --- SECURITY --- Consider file permissions if sensitive data were stored
         match fs::read_to_string(path) {
             Ok(json_string) => {
-                match serde_json::from_str::<CachedInfo>(&json_string) {
+                match serde_json::from_str::<FortnoxInfoCacheData>(&json_string) {
                     Ok(data) => {
                         info!("Info cache loaded successfully from {}", path.display());
                         Ok(Some(data))
                     }
                     Err(e) => {
-                        // File exists but is corrupt/malformed
-                        error!("Failed to parse info cache file {}: {}. Will attempt refetch.", path.display(), e);
+                        warn!(
+                            // Use warn instead of error, treat as cache miss
+                            "Failed to parse info cache file {}: {}. Will attempt refetch.",
+                            path.display(),
+                            e
+                        );
                         // Optionally delete the corrupt file?
                         // fs::remove_file(path).ok();
-                        Err(AppError::SerdeJson(e)) // Propagate error, but maybe just return Ok(None) to force refetch? Let's return Ok(None).
-                        // Ok(None) // Treat parse error as cache miss
+                        Ok(None) // Treat parse error as cache miss
                     }
                 }
             }
             Err(e) => {
-                // File exists but couldn't be read
-                 error!("Failed to read info cache file {}: {}. Will attempt refetch.", path.display(), e);
-                 Err(AppError::Io(e)) // Propagate I/O error, but maybe just return Ok(None) to force refetch? Let's return Ok(None).
-                 // Ok(None) // Treat read error as cache miss
+                // File might exist but couldn't be read (permissions?)
+                error!(
+                    "Failed to read info cache file {}: {}. Will attempt refetch.",
+                    path.display(),
+                    e
+                );
+                // Decide if this should be a hard error or just a cache miss
+                // For robustness, treat as a cache miss for now.
+                Ok(None) // Treat read error as cache miss
+                         // Or return Err(AppError::Io(e)) if read failure is critical
             }
         }
     }
 
-    /// Saves the combined info data to the configured cache file path.
-    fn save_info_cache(&self, employees: &[Employee], time_info: &TimeRegistrationInfo) -> Result<(), AppError> {
+    /// Saves the combined Fortnox info data to the cache file.
+    fn save_info_cache(&self, data: &FortnoxInfoCacheData) -> Result<(), AppError> {
         let path = &self.config.info_cache_path;
-        let now_unix = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|e| AppError::SystemTimeError(e.to_string()))?
-            .as_secs();
+        let json_string = serde_json::to_string_pretty(data)?;
 
-        let cache_data = CachedInfo {
-            employees: employees.to_vec(), // Clone data into the cache struct
-            time_info: time_info.clone(),  // Clone data
-            last_updated_unix_secs: now_unix,
-        };
+        // Consider creating parent directory if it doesn't exist
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
 
-        let json_string = serde_json::to_string_pretty(&cache_data)?;
-
-        // --- SECURITY --- Consider file permissions
-        let mut file = File::create(path)?; // Overwrites existing file
+        let mut file = File::create(path)?;
         file.write_all(json_string.as_bytes())?;
         info!("Info cache data saved to {}", path.display());
         Ok(())
+    }
+
+    /// Gets reference data (employees, customers, projects, articles), using cache if valid.
+    pub async fn get_fortnox_reference_data(&self) -> Result<FortnoxInfoCacheData, AppError> {
+        // 1. Try loading from cache
+        if let Ok(Some(cached_data)) = self.load_info_cache() {
+            // 2. Check if cache is stale
+            match cached_data.info.is_stale(INFO_CACHE_DURATION_SECS) {
+                Ok(false) => {
+                    info!("Using valid info cache data.");
+                    return Ok(cached_data);
+                }
+                Ok(true) => {
+                    info!("Info cache is stale. Refetching data...");
+                }
+                Err(e) => {
+                    error!("Error checking cache staleness: {}. Refetching data...", e);
+                    // Proceed to refetch
+                }
+            }
+        } else {
+            info!("No valid info cache found. Fetching fresh data...");
+            // Proceed to refetch
+        }
+
+        // 3. Fetch fresh data if cache is missing, stale, or load failed
+        let client = self.get_api_client().await?;
+        info!("Fetching fresh reference data from Fortnox API...");
+
+        // Use try_join! for concurrent fetches
+        let (employees_resp, customers_resp, projects_resp, articles_resp) = tokio::try_join!(
+            client.fetch_employees(),
+            client.fetch_customers(),
+            client.fetch_projects_list(), // Use the list variant
+            client.fetch_articles()
+        )?;
+
+        info!("Successfully fetched fresh reference data.");
+
+        let fresh_data = FortnoxInfoCacheData {
+            info: CachedInfo::new()?, // Create new timestamp info
+            employees: employees_resp.employees,
+            customers: customers_resp.customers,
+            projects: projects_resp.projects,
+            articles: articles_resp.articles,
+        };
+
+        // 4. Attempt to save the fresh data to cache
+        if let Err(e) = self.save_info_cache(&fresh_data) {
+            error!("Failed to save fresh data to info cache: {}", e);
+            // Log the error, but proceed with returning the fresh data
+        }
+
+        Ok(fresh_data)
     }
 }
 
@@ -922,7 +1307,7 @@ async fn main() -> Result<(), AppError> {
     info!(
         "Fortnox configuration loaded. Token file: {}, Info cache file: {}",
         fortnox_config.token_file_path.display(),
-        fortnox_config.info_cache_path.display() 
+        fortnox_config.info_cache_path.display()
     );
 
     // --- Create HTTP Client (shared potentially, but FortnoxService needs one) ---
@@ -941,8 +1326,7 @@ async fn main() -> Result<(), AppError> {
     // --- Define Routes ---
     let fortnox_routes = Router::new()
         .route("/auth/callback", get(handle_callback))
-        .route("/auth", get(handle_fortnox_auth))
-        .route("/info", get(handle_get_info));
+        .route("/auth", get(handle_fortnox_auth));
     let api_routes = Router::new().nest("/fortnox", fortnox_routes);
 
     let app = Router::new()
@@ -1054,88 +1438,89 @@ async fn handle_callback(
     }
 }
 
-
-/// Handler to fetch and display personnel and time registration info
-async fn handle_get_info(
-    State(state): State<AppState>
-) -> Result<Html<String>, AppError> {
+/// Handler to fetch and display cached or fresh Fortnox reference data
+async fn handle_get_info(State(state): State<AppState>) -> Result<Html<String>, AppError> {
     info!("Handling /api/fortnox/info request...");
 
-    let (employees, time_info) = state.fortnox_service.get_personnel_and_time_info().await?;
+    // Get data using the service method (handles caching internally)
+    let data = state.fortnox_service.get_fortnox_reference_data().await?;
 
-    // --- Format Output ---
+    // Format the data into an HTML string
     let mut html = String::new();
-    html.push_str("<h1>Fortnox Information</h1>");
+    let last_updated_dt = chrono::DateTime::<chrono::Utc>::from(
+        UNIX_EPOCH + Duration::from_secs(data.info.last_updated_unix_secs),
+    );
 
-    // Personnel Section
-    html.push_str("<h2>Personnel (Employees)</h2>");
-    if employees.is_empty() {
-        html.push_str("<p>No employees found.</p>");
-    } else {
-        html.push_str("<ul>");
-        for emp in employees {
-            let name = emp.full_name.clone().unwrap_or_else(||
-                format!("{} {}", emp.first_name.clone().unwrap_or_default(), emp.last_name.clone().unwrap_or_default())
-            );
-            let active_status = match emp.active {
-                Some(true) => " (Active)",
-                Some(false) => " (Inactive)",
-                None => " (Activity Unknown)" // Handle if 'Active' field is missing
-            };
-            let end_date_status = match emp.end_date {
-                 Some(ref date) if !date.is_empty() => format!(" (End Date: {})", date),
-                 _ => "".to_string()
-            };
-             // Basic check for inactive based on flags
-            let display_status = if emp.active == Some(false) || (!end_date_status.is_empty() && active_status == " (Activity Unknown)") {
-                 format!("{} {}", active_status, end_date_status)
-            } else {
-                 active_status.to_string()
-            };
+    html.push_str("<h1>Fortnox Reference Information</h1>");
+    html.push_str(&format!(
+        "<p><i>Data last updated: {} (UTC)</i></p>",
+        last_updated_dt.to_rfc2822() // Or another format like ISO 8601
+    ));
 
-
-            html.push_str(&format!(
-                "<li>{}: {} {}</li>",
-                emp.employee_id,
-                name.trim(), // Handle potential empty first/last names
-                display_status
-            ));
-        }
-        html.push_str("</ul>");
-    }
-
-    // Time Registration Section
-    html.push_str("<h2>Time Registration Information</h2>");
-    html.push_str("<h3>Mandatory Information (Worked Time)</h3>");
+    // Display counts
+    html.push_str("<h2>Summary</h2>");
     html.push_str("<ul>");
-    for item in time_info.mandatory_for_worked_time {
-        html.push_str(&format!("<li>{}</li>", item));
+    html.push_str(&format!("<li>Employees: {}</li>", data.employees.len()));
+    html.push_str(&format!("<li>Customers: {}</li>", data.customers.len()));
+    html.push_str(&format!("<li>Projects: {}</li>", data.projects.len()));
+    html.push_str(&format!(
+        "<li>Articles/Services: {}</li>",
+        data.articles.len()
+    ));
+    html.push_str("</ul>");
+
+    // Display some details (e.g., first 5 of each)
+    html.push_str("<h2>Details (Sample)</h2>");
+
+    html.push_str("<h3>Employees (First 5)</h3>");
+    html.push_str("<ul>");
+    for item in data.employees.iter().take(5) {
+        html.push_str(&format!(
+            "<li>{} {} ({}) {}</li>",
+            item.first_name.as_deref().unwrap_or("?"),
+            item.last_name.as_deref().unwrap_or("?"),
+            item.employee_id,
+            item.email.as_deref().unwrap_or("-")
+        ));
     }
     html.push_str("</ul>");
 
-    html.push_str("<h3>Mandatory Information (Absence)</h3>");
+    html.push_str("<h3>Customers (First 5)</h3>");
     html.push_str("<ul>");
-    for item in time_info.mandatory_for_absence {
-        html.push_str(&format!("<li>{}</li>", item));
+    for item in data.customers.iter().take(5) {
+        html.push_str(&format!(
+            "<li>{} ({}) {}</li>",
+            item.name,
+            item.customer_number,
+            item.email.as_deref().unwrap_or("-")
+        ));
     }
     html.push_str("</ul>");
 
-    html.push_str("<h3>Other Notes</h3>");
-    html.push_str(&format!("<p>{}</p>", time_info.other_notes));
-
-    html.push_str("<h3>Available Registration Codes (Salary Codes)</h3>");
-    if time_info.available_salary_codes.is_empty() {
-        html.push_str("<p>No salary codes found.</p>");
-    } else {
-        html.push_str("<ul>");
-        // Maybe filter or group by type? For now, list all.
-        for code in time_info.available_salary_codes {
-            html.push_str(&format!("<li>{}: {} (Type: {})</li>",
-                code.code, code.description, code.code_type));
-        }
-        html.push_str("</ul>");
-        html.push_str("<p><i>Note: Filter these codes based on 'CodeType' (e.g., ARBETTID, FRÅNVARO) as needed for specific time/absence entry.</i></p>");
+    html.push_str("<h3>Projects (First 5)</h3>");
+    html.push_str("<ul>");
+    for item in data.projects.iter().take(5) {
+        html.push_str(&format!(
+            "<li>{} ({}) - Status: {}</li>",
+            item.description,
+            item.project_number,
+            item.status.as_deref().unwrap_or("N/A")
+        ));
     }
+    html.push_str("</ul>");
+
+    html.push_str("<h3>Articles/Services (First 5)</h3>");
+    html.push_str("<ul>");
+    for item in data.articles.iter().take(5) {
+        html.push_str(&format!(
+            "<li>{} ({}) - Price: {}, Active: {}</li>",
+            item.description,
+            item.article_number,
+            item.sales_price.as_deref().unwrap_or("N/A"),
+            item.active.map_or("N/A".to_string(), |b| b.to_string())
+        ));
+    }
+    html.push_str("</ul>");
 
     Ok(Html(html))
 }
@@ -1154,56 +1539,47 @@ async fn handle_status(State(state): State<AppState>) -> Result<Html<String>, Ap
 
 // --- Example Background Task Logic (Updated) ---
 async fn run_example_api_call(state: AppState) {
-    // Pass AppState
-    info!("Running example API call sequence using FortnoxService...");
+    // info!("Running example API call sequence using FortnoxService...");
 
-    // Get the API client (handles token refresh internally)
-    match state.fortnox_service.get_api_client().await {
-        Ok(api_client) => {
-            info!("Example Task: Successfully obtained Fortnox API client.");
+    // // Get the API client (handles token refresh internally)
+    // match state.fortnox_service.get_api_client().await {
+    //     Ok(api_client) => {
+    //         info!("Example Task: Successfully obtained Fortnox API client.");
 
-            // Perform API calls using the obtained client
-            match api_client.fetch_projects().await {
-                Ok(projects) => {
-                    info!(
-                        "Example Task: Successfully fetched {} projects.",
-                        projects.projects.len()
-                    );
-                    println!("\n--- Fetched Fortnox Project Names (Example Task) ---");
-                    if projects.projects.is_empty() {
-                        println!("No projects found.");
-                    } else {
-                        for project in projects.projects.iter().take(5) {
-                            // Print first 5
-                            println!(" - {} ({})", project.description, project.project_number);
-                        }
-                    }
-                    println!("-----------------------------------------------------\n");
-                }
-                Err(e) => error!("Example Task: Failed to fetch projects: {}", e),
-            }
-            // ... Add other example API calls here using 'api_client' ...
-        }
-        Err(e) => {
-            error!("Example Task: Failed to get Fortnox API client: {}", e);
-            match e {
-                // If it indicates re-auth is needed
-                AppError::MissingOrInvalidToken => {
-                    // Get server base URL from service config for the message
-                    let server_base = state
-                        .fortnox_service
-                        .config
-                        .redirect_uri
-                        .split("/fortnox/auth/callback")
-                        .next()
-                        .unwrap(); 
-                    warn!("Example Task: Fortnox authorization required. Please visit {}/ to authorize.", server_base);
-                }
-                _ => {
-                    // Other errors might be temporary network issues etc.
-                }
-            }
-        }
-    }
-    info!("Example API call sequence finished.");
+    //         // Perform API calls using the obtained client
+    //         match api_client.fetch_projects().await {
+    //             Ok(projects) => {
+    //                 info!(
+    //                     "Example Task: Successfully fetched {} projects.",
+    //                     projects.projects.len()
+    //                 );
+    //                 println!("\n--- Fetched Fortnox Project Names (Example Task) ---");
+    //                 if projects.projects.is_empty() {
+    //                     println!("No projects found.");
+    //                 } else {
+    //                     for project in projects.projects.iter().take(5) {
+    //                         // Print first 5
+    //                         println!(" - {} ({})", project.description, project.project_number);
+    //                     }
+    //                 }
+    //                 println!("-----------------------------------------------------\n");
+    //             }
+    //             Err(e) => error!("Example Task: Failed to fetch projects: {}", e),
+    //         }
+    //         // ... Add other example API calls here using 'api_client' ...
+    //     }
+    //     Err(e) => {
+    //         error!("Example Task: Failed to get Fortnox API client: {}", e);
+    //         match e {
+    //             // If it indicates re-auth is needed
+    //             AppError::MissingOrInvalidToken => {
+    //                 warn!("Example Task: Fortnox authorization required. Please visit {}/ to authorize.", "https://acounter.net/api/fortnox/auth");
+    //             }
+    //             _ => {
+    //                 // Other errors might be temporary network issues etc.
+    //             }
+    //         }
+    //     }
+    // }
+    // info!("Example API call sequence finished.");
 }

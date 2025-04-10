@@ -18,8 +18,10 @@ target/
 
 .env
 
-# Fortnox auth token
 fortnox_token.json
+fortnox_info_cache.json
 
 # Https
 **.pem
+
+paperbin
