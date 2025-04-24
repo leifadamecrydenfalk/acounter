@@ -1,4 +1,5 @@
 // src/main.rs
+use anyhow::{Context, Result}; // Keep for main's error handling
 use axum::http::StatusCode as AxumStatusCode;
 use axum::{
     extract::{Query, State},
@@ -6,196 +7,162 @@ use axum::{
     routing::get,
     Router,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use reqwest::{Client, Method, RequestBuilder, StatusCode as ReqwestStatusCode};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::collections::HashMap;
-use std::{
-    env,
-    fs::{self, File},
-    io::Write, // Removed BufReader (not used), kept Write
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
-use thiserror::Error;
-use tokio::sync::Mutex;
-use tokio::time::sleep; // For example task delay
-use tracing::{error, info, warn, Level}; // Added warn
-use tracing_subscriber::FmtSubscriber;
-use url::Url;
-
 use axum_server::tls_rustls::RustlsConfig;
+use std::{env, net::SocketAddr, path::PathBuf, sync::Arc};
+use thiserror::Error; // Keep for AppError
+use tracing::{error, info, warn, Level};
+use tracing_subscriber::FmtSubscriber;
 
-mod fortnox;
-pub use fortnox::*;
+// Import the specific error type now
+mod fortnox_client;
+use fortnox_client::{
+    run_fortnox_token_refresh,
+    AuthCallbackParams,
+    FortnoxClient,
+    FortnoxConfig,
+    FortnoxError, // Import FortnoxError
+    DEFAULT_CACHE_DURATION_SECS,
+};
 
-mod fortnox_data;
-pub use fortnox_data::*;
-
-mod time_validation;
-pub use time_validation::*;
-
-mod time_validation_tests;
-
-mod fortnox_token_refresh;
-pub use fortnox_token_refresh::*;
-
-// --- Configuration & Constants ---
-
-const TOKEN_FILE_NAME: &str = "fortnox_token.json";
-
-// --- !! SECURITY WARNING !! ---
-// Storing tokens in a plain text file is NOT recommended for production.
-// Use environment variables, a secure vault, database with encryption,
-// or OS-level secure storage. Ensure file permissions are restrictive.
-// --- !! SECURITY WARNING !! ---
-
-// --- Error Handling (Mostly Unchanged, added FortnoxServiceError variant) ---
-
-// --- Fortnox Specific Error Payload Parsing ---
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")] // Assuming PascalCase based on the example
-pub struct FortnoxErrorInformation {
-    pub error: Option<serde_json::Value>, // Use Value for flexibility (could be int or string)
-    pub message: Option<String>,
-    pub code: Option<serde_json::Value>, // Use Value for flexibility
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")] // Assuming root is PascalCase
-pub struct FortnoxErrorPayload {
-    #[serde(rename = "ErrorInformation")]
-    pub error_information: FortnoxErrorInformation,
-}
-
+// --- AppError Definition (Update Fortnox variant) ---
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Missing environment variable: {0}")]
     MissingEnvVar(String),
-    #[error("HTTP request failed: {0}")]
-    Reqwest(#[from] reqwest::Error),
-    #[error("URL parsing failed: {0}")]
-    UrlParse(#[from] url::ParseError),
-    #[error("JSON serialization/deserialization failed: {0}")]
-    SerdeJson(#[from] serde_json::Error), // Correct type
+
     #[error("File I/O error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("OAuth state mismatch")]
-    OAuthStateMismatch,
 
-    // Enhanced Fortnox API Error
-    #[error("Fortnox API Error: Status={status}, Parsed={parsed_error:?}, Raw={raw_message:?}")]
-    FortnoxApiError {
-        status: ReqwestStatusCode,
-        parsed_error: Option<FortnoxErrorPayload>, // Store parsed structure
-        raw_message: Option<String>,               // Keep raw as fallback
-    },
-    #[error("Fortnox API rate limit exceeded (Status 429)")]
-    FortnoxRateLimited, // Specific variant for rate limiting
-
-    #[error("Failed to acquire lock")]
-    LockError,
-    #[error("Authorization code not received")]
-    MissingAuthCode,
-    #[error("Access token not available or refresh failed")]
-    MissingOrInvalidToken,
-    #[error("System time error: {0}")]
-    SystemTimeError(String),
     #[error("TLS configuration error: {0}")]
     TlsConfig(String),
-    #[error("Fortnox Service Error: {0}")]
-    FortnoxServiceError(String),
-    // Added variant for specific deserialization issue on success response
-    #[error("Failed to deserialize successful response body: {0}")]
-    SuccessfulResponseDeserialization(reqwest::Error),
+
+    // Now directly holds the specific FortnoxError
+    #[error("Fortnox API client error")]
+    Fortnox(#[from] FortnoxError), // Use #[from] for automatic conversion via ?
+
+                                   // Keep a general anyhow variant for other unexpected errors in main? Optional.
+                                   // #[error("Internal Server Error: {0}")]
+                                   // Internal(#[from] anyhow::Error),
 }
 
-// Map AppError to Axum's IntoResponse
+// --- IntoResponse Implementation (Match on specific FortnoxError) ---
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
-        error!("Error occurred: {}", self); // Log the original error
+        // Log the full error details
+        error!("Error occurred: {:?}", self); // Use Debug format
 
-        let (status_code, error_message) = match self {
-            // Handling for the new variant
-            AppError::SuccessfulResponseDeserialization(ref _e) =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error (Unexpected response format from Fortnox). Check logs.".to_string(),
-                ),
+        let (status_code, error_message) = match &self {
+            AppError::MissingEnvVar(_) => (
+                AxumStatusCode::INTERNAL_SERVER_ERROR,
+                "Server configuration error.",
+            ),
+            AppError::Io(_) => (
+                AxumStatusCode::INTERNAL_SERVER_ERROR,
+                "Server file I/O error.",
+            ),
+            AppError::TlsConfig(_) => (
+                AxumStatusCode::INTERNAL_SERVER_ERROR,
+                "Server TLS configuration error.",
+            ),
 
-            // Ensure all existing mappings are correct
-            AppError::MissingEnvVar(ref _var) =>
-                (AxumStatusCode::INTERNAL_SERVER_ERROR, "Configuration error.".to_string()),
-            AppError::Reqwest(ref _e) =>
-                (AxumStatusCode::BAD_GATEWAY, "External request failed.".to_string()),
-            AppError::UrlParse(_) =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error (URL parsing).".to_string(),
-                ),
-            AppError::SerdeJson(_) =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error (JSON processing).".to_string(),
-                ),
-            AppError::Io(_) =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error (File I/O). Check logs.".to_string(),
-                ),
-            AppError::OAuthStateMismatch =>
-                (AxumStatusCode::BAD_REQUEST, "OAuth state validation failed.".to_string()),
-            AppError::FortnoxApiError { status, .. } => {
-                // Simplified match arm
-                let axum_status = AxumStatusCode::from_u16(status.as_u16()).unwrap_or(
-                    AxumStatusCode::INTERNAL_SERVER_ERROR
-                );
-
-                let user_message = format!(
-                    "Failed to communicate with Fortnox API (Status {}). Details logged.",
-                    status.as_u16()
-                );
-                (axum_status, user_message)
-            }
-            AppError::FortnoxRateLimited =>
-                (
-                    AxumStatusCode::TOO_MANY_REQUESTS,
-                    "Fortnox API rate limit exceeded. Please try again later.".to_string(),
-                ),
-            AppError::LockError =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error (Concurrency).".to_string(),
-                ),
-            AppError::MissingAuthCode =>
-                (
+            // Handle specific Fortnox errors for better HTTP responses
+            AppError::Fortnox(fortnox_err) => match fortnox_err {
+                FortnoxError::OAuthStateMismatch => (
                     AxumStatusCode::BAD_REQUEST,
-                    "Authorization code missing in callback.".to_string(),
+                    "OAuth state validation failed.",
                 ),
-            AppError::MissingOrInvalidToken =>
-                (
+                FortnoxError::MissingAuthCode => (
+                    AxumStatusCode::BAD_REQUEST,
+                    "Authorization code missing in callback.",
+                ),
+                FortnoxError::MissingToken => (
                     AxumStatusCode::UNAUTHORIZED,
-                    "Authentication token not available, expired, or refresh failed. Please try authenticating again via /api/fortnox/auth".to_string(),
+                    "Authentication token not available. Please authorize.",
                 ),
-            AppError::SystemTimeError(ref msg) =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Internal Server Error (Time Calculation: {})", msg),
+                FortnoxError::TokenRefreshFailed { status, message } => {
+                    error!(
+                        "Token Refresh Failure: Status={:?}, Msg={}",
+                        status, message
+                    );
+                    (
+                        AxumStatusCode::UNAUTHORIZED,
+                        "Token refresh failed. Please re-authorize.",
+                    )
+                }
+                FortnoxError::RateLimitExceeded => (
+                    AxumStatusCode::TOO_MANY_REQUESTS,
+                    "Fortnox API rate limit exceeded. Please try again later.",
                 ),
-            AppError::TlsConfig(ref msg) =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Internal server error (TLS Setup: {}). Check logs.", msg),
-                ),
-            AppError::FortnoxServiceError(ref msg) =>
-                (
-                    AxumStatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Internal Fortnox Service Error: {}", msg),
-                ),
+                FortnoxError::ApiError { status, message } => {
+                    // Map Fortnox status code to Axum status code
+                    let axum_status = AxumStatusCode::from_u16(status.as_u16())
+                        .unwrap_or(AxumStatusCode::INTERNAL_SERVER_ERROR);
+                    error!("Fortnox API Error: Status={}, Msg={}", status, message);
+                    // Provide generic message for API errors unless specific handling is needed
+                    (
+                        axum_status,
+                        "An error occurred while communicating with Fortnox API.",
+                    )
+                }
+                FortnoxError::Request(e) => {
+                    error!("Network request error to Fortnox: {}", e);
+                    (
+                        AxumStatusCode::BAD_GATEWAY,
+                        "Failed to connect to Fortnox API.",
+                    )
+                }
+                FortnoxError::Json(e) => {
+                    error!("JSON processing error related to Fortnox: {}", e);
+                    (
+                        AxumStatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal error processing Fortnox data.",
+                    )
+                }
+                FortnoxError::Io { source, context } => {
+                    error!("I/O error related to Fortnox ({}) : {}", context, source);
+                    (
+                        AxumStatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal server error (Fortnox I/O).",
+                    )
+                }
+                FortnoxError::UrlParse(e) => {
+                    error!("URL parsing error related to Fortnox: {}", e);
+                    (
+                        AxumStatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal server error (Fortnox URL config).",
+                    )
+                }
+                FortnoxError::TimeError(msg) => {
+                    error!("System time error related to Fortnox: {}", msg);
+                    (
+                        AxumStatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal server error (Time).",
+                    )
+                }
+                FortnoxError::LockError(msg) => {
+                    error!("Concurrency lock error related to Fortnox: {}", msg);
+                    (
+                        AxumStatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal server error (Concurrency).",
+                    )
+                }
+                FortnoxError::CacheError(msg) => {
+                    error!("Cache error related to Fortnox: {}", msg);
+                    (
+                        AxumStatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal server error (Cache).",
+                    )
+                }
+                FortnoxError::ConfigError(msg) => {
+                    error!("Configuration error in Fortnox client: {}", msg);
+                    (
+                        AxumStatusCode::INTERNAL_SERVER_ERROR,
+                        "Internal server error (Fortnox Config).",
+                    )
+                }
+            },
+            // Handle other AppError variants if they exist
+            // AppError::Internal(e) => (AxumStatusCode::INTERNAL_SERVER_ERROR, "An unexpected internal server error occurred."),
         };
 
         (
@@ -206,161 +173,123 @@ impl IntoResponse for AppError {
     }
 }
 
-// --- General App Configuration ---
+// --- General App Configuration (remains the same) ---
 #[derive(Debug, Clone)]
 struct AppConfig {
     cert_path: String,
     key_path: String,
-    // Add other non-Fortnox config here if needed
 }
 
+// --- Application State (remains the same) ---
+#[derive(Clone)]
+pub struct AppState {
+    pub fortnox_client: Arc<FortnoxClient>,
+}
+
+// --- Main Function (Adjust error mapping) ---
 #[tokio::main]
-async fn main() -> Result<(), AppError> {
-    // --- Setup ---
+async fn main() -> Result<()> {
+    // Use anyhow::Result for top-level reporting
+    // --- Setup (remains the same) ---
     dotenv::dotenv().ok();
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber)
+        .context("Setting tracing subscriber failed")?;
+    info!("Tracing subscriber initialized.");
 
-    // --- Load General App Configuration ---
-    let app_config = AppConfig {
-        cert_path: env::var("CERT_PATH")
-            .map_err(|_| AppError::MissingEnvVar("CERT_PATH".into()))?,
-        key_path: env::var("KEY_PATH").map_err(|_| AppError::MissingEnvVar("KEY_PATH".into()))?,
-    };
+    // --- Load Configurations (use AppError for specific load errors) ---
+    let app_config = load_app_config()?; // Returns Result<_, AppError>
     info!("App configuration loaded.");
-
-    // --- Load Fortnox Configuration using the new FortnoxConfig struct ---
-    let fortnox_config = FortnoxConfig {
-        client_id: env::var("FORTNOX_CLIENT_ID")
-            .map_err(|_| AppError::MissingEnvVar("FORTNOX_CLIENT_ID".into()))?,
-        client_secret: env::var("FORTNOX_CLIENT_SECRET")
-            .map_err(|_| AppError::MissingEnvVar("FORTNOX_CLIENT_SECRET".into()))?,
-        redirect_uri: env::var("FORTNOX_REDIRECT_URI")
-            .map_err(|_| AppError::MissingEnvVar("FORTNOX_REDIRECT_URI".into()))?,
-        scopes: env::var("FORTNOX_SCOPES")
-            .map_err(|_| AppError::MissingEnvVar("FORTNOX_SCOPES".into()))?,
-        token_file_path: env::var("TOKEN_PATH")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from(TOKEN_FILE_NAME)),
-        cache_dir: PathBuf::from("./fortnox_cache"),
-        cache_duration_secs: DEFAULT_CACHE_DURATION_SECS,
-    };
+    let fortnox_config = load_fortnox_config()?; // Returns Result<_, AppError>
     info!("Fortnox configuration loaded.");
 
-    // --- Create Fortnox Client from the new module ---
-    let fortnox_client = match FortnoxClient::new(fortnox_config) {
-        Ok(client) => Arc::new(client),
-        Err(e) => {
-            error!("Failed to initialize FortnoxClient: {}", e);
-            return Err(convert_fortnox_error(e));
-        }
-    };
+    // --- Create Fortnox Client (new returns Result<_, FortnoxError>) ---
+    // Use ? which automatically converts FortnoxError -> AppError::Fortnox via #[from]
+    let fortnox_client = FortnoxClient::new(fortnox_config)?;
+    let fortnox_client = Arc::new(fortnox_client);
     info!("Fortnox Client initialized.");
 
-    // --- Start background token refresh task ---
+    // --- Start background token refresh task (remains the same) ---
     let refresh_client = fortnox_client.clone();
-    // Spawn the function from the dedicated module
     tokio::spawn(run_fortnox_token_refresh(refresh_client));
 
-    // --- Create Fortnox Data Service ---
-    let fortnox_data_service = Arc::new(FortnoxDataService::new(fortnox_client.clone()));
-    info!("Fortnox Data Service initialized.");
-
-    let time_validation_service = Arc::new(Mutex::new(TimeValidationService::new()));
-
-    // --- Create Shared App State with FortnoxClient ---
-    let state = AppState {
-        fortnox_client: fortnox_client.clone(),
-        fortnox_data_service: fortnox_data_service.clone(),
-        time_validation_service: time_validation_service.clone(),
-    };
+    // --- Create Shared App State (remains the same) ---
+    let state = AppState { fortnox_client };
     info!("Application state initialized.");
 
-    // --- Define Routes ---
+    // --- Define Routes (remains the same) ---
     let fortnox_routes = Router::new()
         .route("/auth", get(handle_api_fortnox_auth))
         .route("/auth/callback", get(handle_api_fortnox_auth_callback));
-
     let api_routes = Router::new().nest("/fortnox", fortnox_routes);
-
     let app = Router::new()
         .nest("/api", api_routes)
         .route("/status", get(handle_status))
-        .with_state(state.clone());
+        .with_state(state);
 
-    // --- Configure TLS ---
-    let tls_config = match RustlsConfig::from_pem_file(
-        PathBuf::from(&app_config.cert_path),
-        PathBuf::from(&app_config.key_path),
-    )
-    .await
-    {
-        Ok(config) => config,
-        Err(e) => {
-            let err_msg = format!("Failed to load TLS cert/key: {}", e);
-            error!("{}", err_msg);
-            return Err(AppError::TlsConfig(err_msg));
-        }
-    };
-    info!(
-        "TLS configuration loaded successfully from {} and {}",
-        app_config.cert_path, app_config.key_path
-    );
+    // --- Configure TLS (load_tls_config returns Result<_, AppError>) ---
+    let tls_config = load_tls_config(&app_config).await?;
+    info!("TLS configuration loaded.");
 
-    // --- Run Web Server ---
+    // --- Run Web Server (remains the same) ---
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     info!("Starting server on https://{}", addr);
     axum_server::bind_rustls(addr, tls_config)
         .serve(app.into_make_service())
-        .await?;
+        .await
+        .context("HTTPS server failed")?; // Add context for anyhow
 
     Ok(())
 }
 
-// Helper function to convert FortnoxError to AppError
-pub fn convert_fortnox_error(e: FortnoxError) -> AppError {
-    match e {
-        FortnoxError::RequestFailed(req_err) => AppError::Reqwest(req_err),
-        FortnoxError::JsonError(json_err) => AppError::SerdeJson(json_err),
-        FortnoxError::IoError(io_err) => AppError::Io(io_err),
-        FortnoxError::UrlParseError(url_err) => AppError::UrlParse(url_err),
-        FortnoxError::OAuthStateMismatch => AppError::OAuthStateMismatch,
-        FortnoxError::MissingAuthCode => AppError::MissingAuthCode,
-        FortnoxError::MissingToken => AppError::MissingOrInvalidToken,
-        FortnoxError::TokenRefreshFailed => AppError::MissingOrInvalidToken,
-        FortnoxError::RateLimitExceeded => AppError::FortnoxRateLimited,
-        FortnoxError::ApiError { status, message } => AppError::FortnoxApiError {
-            status: reqwest::StatusCode::from_u16(status.as_u16())
-                .unwrap_or(reqwest::StatusCode::INTERNAL_SERVER_ERROR),
-            parsed_error: None,
-            raw_message: Some(message),
-        },
-        FortnoxError::TimeError(msg) => AppError::SystemTimeError(msg),
-        FortnoxError::LockError => AppError::LockError,
-        FortnoxError::CacheError(msg) => AppError::FortnoxServiceError(msg),
-    }
+// --- Helper Functions for Configuration Loading (return AppError) ---
+fn load_app_config() -> Result<AppConfig, AppError> {
+    Ok(AppConfig {
+        cert_path: env::var("CERT_PATH")
+            .map_err(|_| AppError::MissingEnvVar("CERT_PATH".to_string()))?,
+        key_path: env::var("KEY_PATH")
+            .map_err(|_| AppError::MissingEnvVar("KEY_PATH".to_string()))?,
+    })
 }
 
-// Updated AppState to use FortnoxClient
-#[derive(Clone)]
-pub struct AppState {
-    pub fortnox_client: Arc<FortnoxClient>,
-    pub fortnox_data_service: Arc<FortnoxDataService>,
-    pub time_validation_service: Arc<Mutex<TimeValidationService>>,
+fn load_fortnox_config() -> Result<FortnoxConfig, AppError> {
+    // These could potentially return FortnoxError::ConfigError if desired,
+    // but AppError::MissingEnvVar is fine for application setup.
+    Ok(FortnoxConfig {
+        client_id: env::var("FORTNOX_CLIENT_ID")
+            .map_err(|_| AppError::MissingEnvVar("FORTNOX_CLIENT_ID".to_string()))?,
+        client_secret: env::var("FORTNOX_CLIENT_SECRET")
+            .map_err(|_| AppError::MissingEnvVar("FORTNOX_CLIENT_SECRET".to_string()))?,
+        redirect_uri: env::var("FORTNOX_REDIRECT_URI")
+            .map_err(|_| AppError::MissingEnvVar("FORTNOX_REDIRECT_URI".to_string()))?,
+        scopes: env::var("FORTNOX_SCOPES")
+            .map_err(|_| AppError::MissingEnvVar("FORTNOX_SCOPES".to_string()))?,
+        token_file_path: env::var("TOKEN_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("fortnox_token.json")), // Consistent default
+        cache_dir: PathBuf::from(
+            env::var("CACHE_DIR").unwrap_or_else(|_| "./fortnox_cache".to_string()),
+        ),
+        cache_duration_secs: env::var("CACHE_DURATION_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(DEFAULT_CACHE_DURATION_SECS),
+    })
 }
 
-// Updated route handlers to use FortnoxClient
-async fn handle_api_fortnox_auth(State(state): State<AppState>) -> Result<Redirect, AppError> {
-    info!("Handling /api/fortnox/auth request, initiating OAuth flow...");
-
-    let auth_url = state
-        .fortnox_client
-        .generate_auth_url()
+async fn load_tls_config(config: &AppConfig) -> Result<RustlsConfig, AppError> {
+    RustlsConfig::from_pem_file(&config.cert_path, &config.key_path)
         .await
-        .map_err(convert_fortnox_error)?;
+        .map_err(|e| AppError::TlsConfig(format!("Failed to load TLS cert/key: {}", e)))
+}
 
+// --- Route Handlers (use ? with automatic FortnoxError -> AppError conversion) ---
+async fn handle_api_fortnox_auth(State(state): State<AppState>) -> Result<Redirect, AppError> {
+    info!("Handling /api/fortnox/auth request...");
+    // generate_auth_url returns FortnoxError, ? converts to AppError::Fortnox
+    let auth_url = state.fortnox_client.generate_auth_url().await?;
     Ok(Redirect::temporary(&auth_url))
 }
 
@@ -368,44 +297,33 @@ async fn handle_api_fortnox_auth_callback(
     State(state): State<AppState>,
     Query(params): Query<AuthCallbackParams>,
 ) -> Result<Html<String>, AppError> {
-    info!("Handling /api/fortnox/auth/callback, processing OAuth callback...");
-
-    match state.fortnox_client.handle_auth_callback(params).await {
-        Ok(_) => {
-            info!("Successfully handled Fortnox auth callback.");
-
-            Ok(
-                Html(
-                    "<h1>Success!</h1><p>Authentication successful. Token data saved.</p><p>Server is now authorized with Fortnox API.</p><p>You can close this window.</p>".to_string()
-                )
-            )
-        }
-        Err(e) => {
-            error!("Failed to handle Fortnox auth callback: {}", e);
-            Err(convert_fortnox_error(e))
-        }
-    }
+    info!("Handling /api/fortnox/auth/callback...");
+    // handle_auth_callback returns FortnoxError, ? converts to AppError::Fortnox
+    state.fortnox_client.handle_auth_callback(params).await?;
+    info!("Successfully handled Fortnox auth callback.");
+    Ok(Html(
+        "<h1>Success!</h1><p>Authentication successful. Token data saved.</p>".to_string(),
+    ))
 }
 
 async fn handle_status(State(state): State<AppState>) -> Result<Html<String>, AppError> {
     info!("Handling /status request...");
+    // get_token_status returns FortnoxError, ? converts to AppError::Fortnox
+    let status = state.fortnox_client.get_token_status().await?;
 
-    let token_status = match state.fortnox_client.get_token_status().await {
-        Ok(status) => format!(
-            "Token Status: has_token={}, is_valid={}, expires_in={}s, expires_at={}",
-            status.has_token, status.is_valid, status.expires_in_secs, status.expires_at
-        ),
-        Err(e) => {
-            error!("Failed to get token status: {}", e);
-            format!("Failed to get token status: {}", e)
-        }
-    };
-
-    let html_body = format!(
-        "<h1>Server Status</h1><p>Current Time (Server): {}</p><p>{}</p><p><a href='/api/fortnox/auth'>Authorize with Fortnox</a></p>",
-        chrono::Local::now().to_rfc3339(),
-        token_status
+    let status_message = format!(
+        "Token Status: has_token={}, is_valid={}, is_expired={}, expires_in={}s, expires_at={}",
+        status.has_token,
+        status.is_valid,
+        status.is_expired,
+        status.expires_in_secs,
+        status.expires_at
     );
 
+    let html_body = format!(
+        "<h1>Server Status</h1><p>Current Time (Server): {}</p><p>{}</p><hr><p><a href='/api/fortnox/auth'>Re-authorize with Fortnox</a></p>",
+        chrono::Local::now().to_rfc3339(),
+        status_message
+    );
     Ok(Html(html_body))
 }
