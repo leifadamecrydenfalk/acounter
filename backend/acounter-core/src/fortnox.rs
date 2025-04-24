@@ -407,7 +407,7 @@ impl FortnoxClient {
     }
 
     // Load token data from file
-    fn load_token_data(path: &Path) -> Result<Option<StoredTokenData>, FortnoxError> {
+    pub fn load_token_data(path: &Path) -> Result<Option<StoredTokenData>, FortnoxError> {
         if !path.exists() {
             return Ok(None);
         }
@@ -419,7 +419,7 @@ impl FortnoxClient {
     }
 
     // Save token data to file
-    fn save_token_data(
+    pub fn save_token_data(
         &self,
         token_response: &TokenResponse,
     ) -> Result<StoredTokenData, FortnoxError> {
@@ -447,7 +447,10 @@ impl FortnoxClient {
     }
 
     // Update token state in memory and on disk
-    async fn update_token_state(&self, token_response: &TokenResponse) -> Result<(), FortnoxError> {
+    pub async fn update_token_state(
+        &self,
+        token_response: &TokenResponse,
+    ) -> Result<(), FortnoxError> {
         let new_stored_data = self.save_token_data(token_response)?;
 
         let mut token_guard = self.token_data.lock().await;
@@ -521,7 +524,7 @@ impl FortnoxClient {
     }
 
     // Exchange authorization code for tokens
-    async fn exchange_code_for_token(&self, code: &str) -> Result<TokenResponse, FortnoxError> {
+    pub async fn exchange_code_for_token(&self, code: &str) -> Result<TokenResponse, FortnoxError> {
         let credentials = format!("{}:{}", self.config.client_id, self.config.client_secret);
         let encoded_credentials = BASE64_STANDARD.encode(credentials);
         let auth_header_value = format!("Basic {}", encoded_credentials);
@@ -556,7 +559,7 @@ impl FortnoxClient {
     }
 
     // Refresh the access token
-    async fn refresh_access_token(&self) -> Result<String, FortnoxError> {
+    pub async fn refresh_access_token(&self) -> Result<String, FortnoxError> {
         let token_guard = self.token_data.lock().await;
         let refresh_token = match &*token_guard {
             Some(data) => data.refresh_token.clone(),
@@ -624,7 +627,7 @@ impl FortnoxClient {
     }
 
     // Build a request with the appropriate headers and access token
-    async fn build_request(
+    pub async fn build_request(
         &self,
         method: Method,
         endpoint: &str,
@@ -648,7 +651,7 @@ impl FortnoxClient {
     }
 
     // Send a request and deserialize the response
-    async fn send_and_deserialize<T: DeserializeOwned>(
+    pub async fn send_and_deserialize<T: DeserializeOwned>(
         &self,
         request_builder: RequestBuilder,
     ) -> Result<T, FortnoxError> {
@@ -670,7 +673,7 @@ impl FortnoxClient {
     }
 
     // Generic method to get data from an endpoint
-    async fn get<T: DeserializeOwned + Serialize>(
+    pub async fn get<T: DeserializeOwned + Serialize>(
         &self,
         endpoint: &str,
         base_url: Option<&str>,
@@ -680,7 +683,7 @@ impl FortnoxClient {
     }
 
     // Generate a cache key for a resource
-    fn generate_cache_key(
+    pub fn generate_cache_key(
         &self,
         resource_type: &str,
         resource_id: Option<&str>,
@@ -713,12 +716,12 @@ impl FortnoxClient {
     }
 
     // Get the path to a cache file
-    fn get_cache_file_path(&self, cache_key: &str) -> PathBuf {
+    pub fn get_cache_file_path(&self, cache_key: &str) -> PathBuf {
         self.config.cache_dir.join(format!("{}.json", cache_key))
     }
 
     // Save data to cache
-    fn save_to_cache<T: Serialize>(
+    pub fn save_to_cache<T: Serialize>(
         &self,
         resource_type: &str,
         resource_id: Option<&str>,
@@ -749,7 +752,7 @@ impl FortnoxClient {
     }
 
     // Load data from cache
-    fn load_from_cache<T: DeserializeOwned>(
+    pub fn load_from_cache<T: DeserializeOwned>(
         &self,
         resource_type: &str,
         resource_id: Option<&str>,
@@ -776,7 +779,7 @@ impl FortnoxClient {
     }
 
     // Generic method to get data with caching
-    async fn get_with_cache<T: DeserializeOwned + Serialize>(
+    pub async fn get_with_cache<T: DeserializeOwned + Serialize>(
         &self,
         endpoint: &str,
         resource_type: &str,

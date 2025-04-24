@@ -1,0 +1,408 @@
+{
+  "metadata": {
+    "last_updated_unix_secs": 1744286005,
+    "resource_type": "employees",
+    "resource_id": null,
+    "query_params": null
+  },
+  "data": {
+    "Employees": [
+      {
+        "@url": "https://api.fortnox.se/3/employees/1",
+        "EmployeeId": "1",
+        "PersonalIdentityNumber": "19850721-8538",
+        "FirstName": "Peter",
+        "LastName": "Sundqvist",
+        "FullName": "Peter Sundqvist",
+        "Email": "peter.sundqvist@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/2",
+        "EmployeeId": "2",
+        "PersonalIdentityNumber": "19781203-0315",
+        "FirstName": "Tobias",
+        "LastName": "Andersson",
+        "FullName": "Tobias Andersson",
+        "Email": "tobias@turbobrilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/4",
+        "EmployeeId": "4",
+        "PersonalIdentityNumber": "19850810-0354",
+        "FirstName": "Michael ",
+        "LastName": "Molin",
+        "FullName": "Michael  Molin",
+        "Email": "mike.molin@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/5",
+        "EmployeeId": "5",
+        "PersonalIdentityNumber": "19860605-8611",
+        "FirstName": "Benjamin",
+        "LastName": "Nauck",
+        "FullName": "Benjamin Nauck",
+        "Email": "benjamin.nauck@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/8",
+        "EmployeeId": "8",
+        "PersonalIdentityNumber": "19870326-8535",
+        "FirstName": "David",
+        "LastName": "Marquardt",
+        "FullName": "David Marquardt",
+        "Email": "david.john.marquardt@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/10",
+        "EmployeeId": "10",
+        "PersonalIdentityNumber": "19891218-7971",
+        "FirstName": "Benjamin",
+        "LastName": "Norlin",
+        "FullName": "Benjamin Norlin",
+        "Email": "benjamin.norlin@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/11",
+        "EmployeeId": "11",
+        "PersonalIdentityNumber": "19810318-7871",
+        "FirstName": "Lasse ",
+        "LastName": "Wedin",
+        "FullName": "Lasse  Wedin",
+        "Email": "lassewedin@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/12",
+        "EmployeeId": "12",
+        "PersonalIdentityNumber": "19870124-8554",
+        "FirstName": "Emil",
+        "LastName": "Olofssson",
+        "FullName": "Emil Olofssson",
+        "Email": "emilo35@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/13",
+        "EmployeeId": "13",
+        "PersonalIdentityNumber": "19861023-7821",
+        "FirstName": "Anna",
+        "LastName": "Andersson",
+        "FullName": "Anna Andersson",
+        "Email": "annalillemor1986@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/14",
+        "EmployeeId": "14",
+        "PersonalIdentityNumber": "19840410-4633",
+        "FirstName": "Nicklas",
+        "LastName": "Johansson",
+        "FullName": "Nicklas Johansson",
+        "Email": "nixi@protonmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/15",
+        "EmployeeId": "15",
+        "PersonalIdentityNumber": "19810303-0543",
+        "FirstName": "Erika",
+        "LastName": "Holmberg",
+        "FullName": "Erika Holmberg",
+        "Email": "erika@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/16",
+        "EmployeeId": "16",
+        "PersonalIdentityNumber": "19940327-4179",
+        "FirstName": "Elias",
+        "LastName": "Frank",
+        "FullName": "Elias Frank",
+        "Email": "elias.frank@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/17",
+        "EmployeeId": "17",
+        "PersonalIdentityNumber": "19881007-8512",
+        "FirstName": "Björn",
+        "LastName": "Björkman Bäckström",
+        "FullName": "Björn Björkman Bäckström",
+        "Email": "platinawolf@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/18",
+        "EmployeeId": "18",
+        "PersonalIdentityNumber": "19770414-8951",
+        "FirstName": "Mattias",
+        "LastName": "Wiking",
+        "FullName": "Mattias Wiking",
+        "Email": "mattias@mattiaswiking.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/19",
+        "EmployeeId": "19",
+        "PersonalIdentityNumber": "19900210-2540",
+        "FirstName": "Magdalena ",
+        "LastName": "Häggbom",
+        "FullName": "Magdalena  Häggbom",
+        "Email": "maggjo90@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/21",
+        "EmployeeId": "21",
+        "PersonalIdentityNumber": "19810303-0543",
+        "FirstName": "Erika ",
+        "LastName": "Holmberg",
+        "FullName": "Erika  Holmberg",
+        "Email": "erika@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/22",
+        "EmployeeId": "22",
+        "PersonalIdentityNumber": "19861121-7285",
+        "FirstName": "Gabriela ",
+        "LastName": "Queiroz",
+        "FullName": "Gabriela  Queiroz",
+        "Email": "gabrielaqrz@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/23",
+        "EmployeeId": "23",
+        "PersonalIdentityNumber": "19850915-2453",
+        "FirstName": "Joel",
+        "LastName": "Jonasson",
+        "FullName": "Joel Jonasson",
+        "Email": "joel@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/24",
+        "EmployeeId": "24",
+        "PersonalIdentityNumber": "19771125-8512",
+        "FirstName": "Hans",
+        "LastName": "Rönnbäck",
+        "FullName": "Hans Rönnbäck",
+        "Email": "hans@turborilla.se"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/25",
+        "EmployeeId": "25",
+        "PersonalIdentityNumber": "19890825-7499",
+        "FirstName": "Nils",
+        "LastName": "Wennergren",
+        "FullName": "Nils Wennergren",
+        "Email": "n.wennergren@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/26",
+        "EmployeeId": "26",
+        "PersonalIdentityNumber": "19940318-3677",
+        "FirstName": "Sebastian",
+        "LastName": "Nolemo",
+        "FullName": "Sebastian Nolemo",
+        "Email": "sebastiannolemo@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/27",
+        "EmployeeId": "27",
+        "PersonalIdentityNumber": "19920611-3616",
+        "FirstName": "Zacharie",
+        "LastName": "Menetrier",
+        "FullName": "Zacharie Menetrier",
+        "Email": "zacharie.menetrier@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/28",
+        "EmployeeId": "28",
+        "PersonalIdentityNumber": "19880906-1180",
+        "FirstName": "Gabriela",
+        "LastName": "Nascimento",
+        "FullName": "Gabriela Nascimento",
+        "Email": "gab.nasc@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/29",
+        "EmployeeId": "29",
+        "PersonalIdentityNumber": "19970503-7373",
+        "FirstName": "Oscar",
+        "LastName": "Leiner Olsson",
+        "FullName": "Oscar Leiner Olsson",
+        "Email": "oscar.o.leiner@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/30",
+        "EmployeeId": "30",
+        "PersonalIdentityNumber": "19940728-8357",
+        "FirstName": "Anton",
+        "LastName": "Grönberg",
+        "FullName": "Anton Grönberg",
+        "Email": "antonmgronberg@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/31",
+        "EmployeeId": "31",
+        "PersonalIdentityNumber": "19840606-8570",
+        "FirstName": "Johnny ",
+        "LastName": "Edström",
+        "FullName": "Johnny  Edström",
+        "Email": "jaag.johnny@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/32",
+        "EmployeeId": "32",
+        "PersonalIdentityNumber": "19880913-8822",
+        "FirstName": "Genefra",
+        "LastName": "Pamin",
+        "FullName": "Genefra Pamin",
+        "Email": "genefra@turborilla.se"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/33",
+        "EmployeeId": "33",
+        "PersonalIdentityNumber": "19940727-6709",
+        "FirstName": "Johanna",
+        "LastName": "Forsner",
+        "FullName": "Johanna Forsner",
+        "Email": "hello.shieldmade@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/34",
+        "EmployeeId": "34",
+        "PersonalIdentityNumber": "19870810-6607",
+        "FirstName": "Theres",
+        "LastName": "Hiltunen",
+        "FullName": "Theres Hiltunen",
+        "Email": "thereshiltunen@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/35",
+        "EmployeeId": "35",
+        "PersonalIdentityNumber": "19821127-8513",
+        "FirstName": "Erik",
+        "LastName": "Benerdal",
+        "FullName": "Erik Benerdal",
+        "Email": "erik.benerdal@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/36",
+        "EmployeeId": "36",
+        "PersonalIdentityNumber": "19840410-8956",
+        "FirstName": "Simon",
+        "LastName": "Petterson Almkvist",
+        "FullName": "Simon Petterson Almkvist",
+        "Email": "simon.a.pettersson@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/37",
+        "EmployeeId": "37",
+        "PersonalIdentityNumber": "19920111-0682",
+        "FirstName": "Mimmi",
+        "LastName": "Äijö Johansson",
+        "FullName": "Mimmi Äijö Johansson",
+        "Email": "mimmijohanssonaijo@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/38",
+        "EmployeeId": "38",
+        "PersonalIdentityNumber": "19750217-8598",
+        "FirstName": "Emil",
+        "LastName": "Uddestrand",
+        "FullName": "Emil Uddestrand",
+        "Email": "emil.uddestrand@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/39",
+        "EmployeeId": "39",
+        "PersonalIdentityNumber": "19851126-1672",
+        "FirstName": "Damir",
+        "LastName": "Nataami",
+        "FullName": "Damir Nataami",
+        "Email": "damir.buco@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/40",
+        "EmployeeId": "40",
+        "PersonalIdentityNumber": "19900507-5651",
+        "FirstName": "Oskar",
+        "LastName": "Wernersson",
+        "FullName": "Oskar Wernersson",
+        "Email": "oskar@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/41",
+        "EmployeeId": "41",
+        "PersonalIdentityNumber": "19910526-0898",
+        "FirstName": "Martin",
+        "LastName": "Löfström",
+        "FullName": "Martin Löfström",
+        "Email": "mrbbqml@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/42",
+        "EmployeeId": "42",
+        "PersonalIdentityNumber": "19940614-4932",
+        "FirstName": "Kevin",
+        "LastName": "Brodin",
+        "FullName": "Kevin Brodin",
+        "Email": "kevinbrodin@live.se"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/43",
+        "EmployeeId": "43",
+        "PersonalIdentityNumber": "19801113-7836",
+        "FirstName": "Jimmy",
+        "LastName": "Lotare",
+        "FullName": "Jimmy Lotare",
+        "Email": "jimmy.lotare@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/44",
+        "EmployeeId": "44",
+        "PersonalIdentityNumber": "20200126-2381",
+        "FirstName": "Andrea",
+        "LastName": "Pionera",
+        "FullName": "Andrea Pionera",
+        "Email": "andrea@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/45",
+        "EmployeeId": "45",
+        "PersonalIdentityNumber": "20200129-2396",
+        "FirstName": "Bryan",
+        "LastName": "Stealey",
+        "FullName": "Bryan Stealey",
+        "Email": "bryan@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/46",
+        "EmployeeId": "46",
+        "PersonalIdentityNumber": "20200128-2389",
+        "FirstName": "Jens",
+        "LastName": "Rasmussen",
+        "FullName": "Jens Rasmussen",
+        "Email": "jens@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/47",
+        "EmployeeId": "47",
+        "PersonalIdentityNumber": "20200127-2398",
+        "FirstName": "Joe",
+        "LastName": "Welch",
+        "FullName": "Joe Welch",
+        "Email": "joe@turborilla.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/48",
+        "EmployeeId": "48",
+        "PersonalIdentityNumber": "19830927-8540",
+        "FirstName": "Ida",
+        "LastName": "Hjärtström Baudin",
+        "FullName": "Ida Hjärtström Baudin",
+        "Email": "ida.hjartstrom.baudin@gmail.com"
+      },
+      {
+        "@url": "https://api.fortnox.se/3/employees/49",
+        "EmployeeId": "49",
+        "PersonalIdentityNumber": "19951105-9587",
+        "FirstName": "Lovisa",
+        "LastName": "Vannebäck",
+        "FullName": "Lovisa Vannebäck",
+        "Email": "lolobv@live.se"
+      }
+    ]
+  }
+}

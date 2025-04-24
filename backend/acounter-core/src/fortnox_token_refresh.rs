@@ -4,7 +4,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{error, info}; // No need for target here
 
-pub async fn run_background_refresh(refresh_client: Arc<FortnoxClient>) {
+pub async fn run_fortnox_token_refresh(refresh_client: Arc<FortnoxClient>) {
     // The target will automatically be "acounter_core::background::token_refresh"
     // (or whatever your crate name is instead of acounter_core)
     info!("Starting background token refresh task");

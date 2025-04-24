@@ -33,19 +33,19 @@ use axum_server::tls_rustls::RustlsConfig;
 mod fortnox;
 pub use fortnox::*;
 
+mod fortnox_data;
+pub use fortnox_data::*;
+
 mod time_validation;
 pub use time_validation::*;
 
 mod time_validation_tests;
-pub use time_validation_tests::*;
 
 mod fortnox_token_refresh;
 pub use fortnox_token_refresh::*;
 
 // --- Configuration & Constants ---
 
-const INFO_CACHE_FILE_NAME: &str = "fortnox_info_cache.json";
-const INFO_CACHE_DURATION_SECS: u64 = 24 * 60 * 60;
 const TOKEN_FILE_NAME: &str = "fortnox_token.json";
 
 // --- !! SECURITY WARNING !! ---
@@ -262,13 +262,18 @@ async fn main() -> Result<(), AppError> {
     // --- Start background token refresh task ---
     let refresh_client = fortnox_client.clone();
     // Spawn the function from the dedicated module
-    tokio::spawn(run_background_refresh(refresh_client));
+    tokio::spawn(run_fortnox_token_refresh(refresh_client));
+
+    // --- Create Fortnox Data Service ---
+    let fortnox_data_service = Arc::new(FortnoxDataService::new(fortnox_client.clone()));
+    info!("Fortnox Data Service initialized.");
 
     let time_validation_service = Arc::new(Mutex::new(TimeValidationService::new()));
 
     // --- Create Shared App State with FortnoxClient ---
     let state = AppState {
         fortnox_client: fortnox_client.clone(),
+        fortnox_data_service: fortnox_data_service.clone(),
         time_validation_service: time_validation_service.clone(),
     };
     info!("Application state initialized.");
@@ -342,6 +347,7 @@ pub fn convert_fortnox_error(e: FortnoxError) -> AppError {
 #[derive(Clone)]
 pub struct AppState {
     pub fortnox_client: Arc<FortnoxClient>,
+    pub fortnox_data_service: Arc<FortnoxDataService>,
     pub time_validation_service: Arc<Mutex<TimeValidationService>>,
 }
 
