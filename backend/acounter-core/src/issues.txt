@@ -1,0 +1,27 @@
+Worked‐time entries aren’t checking that hours > 0.
+• We only verify project, customer and service, but never that you’ve actually entered some hours. If someone accidentally enters 0 h (or negative), it will pass R3 and then quietly disappear into your balance checks.
+• Fix: add a hours > 0 check to the “worked time” branch of validate_mandatory_fields.
+
+The “exempt” flag only suppresses the R4 (schedule‐balance) rules.
+Jens (and any other exempted employee) will still get—correctly—R3, R6, R7, R8 and R9 errors. If you really want to waive all of those for certain employees you’ll need to short‐circuit those validations too.
+
+You must feed the system a complete schedule.
+Every Turborilla workday (including WFF Fridays) must have a schedule line or you will get a R9_MISSING_SCHEDULE error at validation time (and daily entry‐record attempts will fail). In practice that means your upstream HR/scheduling feed must cover weekends (0 h), public holidays (0 h), WFF dates, etc., or you’ll see a lot of “missing schedule” noise.
+
+Tolerance settings on decimal comparisons (0.01 h) can mask tiny off‐by-a-few-seconds errors, or conversely leave very small discrepancies unreported.
+If you absolutely care about ±1 minute accuracy you may want to tighten or parameterize that.
+
+The “indirect allocation” cache is correctly invalidated when you call record_time_entries_for_day, but if you ever mutate time_entries directly you must also invalidate the cache manually. Otherwise you can get stale allocation‐basis data.
+
+Recording a day’s entries always overwrites whatever was there before.
+There is no “append” or “upsert” logic: we do a straight map.insert((emp, date), entries). If you re-run the same day with a different entry set you will clobber the old one. That’s usually fine, but worth knowing.
+
+We unwrap all of our mutexes. If a lock ever panics in production you’d poison the mutex and crash on the next access. You may want to switch to fallible locking or at least catch and log poisoning rather than panicking.
+
+We do not re-run full‐day validation sweeps when you mark a week or month complete— we just re-use whatever daily errors are in the cache. If you fix an error after your last daily call but before the month‐complete call, we won’t notice. You might want to add an explicit re-validation pass on month-complete.
+
+Make sure you configure all your public holidays (Swedish holidays go into holidays, WFF days into wff_dates) or you’ll get false‐positive R9 and R8 errors.
+
+Finally, bear in mind that R7 (indirect allocation) only checks “membership” (small entries must go to last-week’s dominant project; large entries must go to one of last-week’s projects). We do not yet check proportional splits for large entries, so you could misallocate 8 h all to a tiny 1 h project last week and we’d never complain.
+
+If you address the zero-hour check, make sure your schedule feed is airtight (including weekends/WFFs), and consider whether your “exempt” flag really wants to suppress only R4 or more of the rules, you should be in good shape.
