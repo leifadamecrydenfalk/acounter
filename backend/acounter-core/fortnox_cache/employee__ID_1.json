@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "last_updated_unix_secs": 1746686592,
+    "resource_type": "employee",
+    "resource_id": "1",
+    "query_params": null
+  },
+  "data": {
+    "Employee": {
+      "@url": null,
+      "EmployeeId": "1",
+      "PersonalIdentityNumber": "19850721-8538",
+      "FirstName": "Peter",
+      "LastName": "Sundqvist",
+      "FullName": "Peter Sundqvist",
+      "Email": "peter.sundqvist@gmail.com"
+    }
+  }
+}

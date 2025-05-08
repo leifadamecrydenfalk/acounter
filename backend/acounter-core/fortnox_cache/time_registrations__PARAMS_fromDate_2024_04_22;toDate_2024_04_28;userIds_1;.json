@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "last_updated_unix_secs": 1746694534,
+    "resource_type": "time_registrations",
+    "resource_id": null,
+    "query_params": {
+      "userIds": "1",
+      "toDate": "2024-04-28",
+      "fromDate": "2024-04-22"
+    }
+  },
+  "data": []
+}

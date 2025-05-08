@@ -1,0 +1,1221 @@
+{
+  "metadata": {
+    "last_updated_unix_secs": 1746696413,
+    "resource_type": "time_registrations",
+    "resource_id": null,
+    "query_params": {
+      "fromDate": "2024-05-01",
+      "toDate": "2024-05-31",
+      "userIds": "45"
+    }
+  },
+  "data": [
+    {
+      "id": "e88be829-77e4-4088-bf10-17b6f720705d",
+      "userId": "45",
+      "workedDate": "2024-05-31",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "3cb13eb0-b880-475d-a5f7-4392431e1b38",
+      "userId": "45",
+      "workedDate": "2024-05-30",
+      "workedHours": 0.25,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": null,
+      "project": null,
+      "service": null,
+      "registrationCode": {
+        "code": "FRX",
+        "name": "Flex time - (Flextid -)",
+        "type": "ABSENCE"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "b1b2c1a2-1824-4313-9e06-7cd4e9e5ccc8",
+      "userId": "45",
+      "workedDate": "2024-05-30",
+      "workedHours": 7.75,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "12a417f0-3bb1-4e56-9f1f-0a06f8b3efb0",
+      "userId": "45",
+      "workedDate": "2024-05-29",
+      "workedHours": 1.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "17",
+        "description": "Health care hour"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "213707aa-8f77-4882-88c4-ee22a626726f",
+      "userId": "45",
+      "workedDate": "2024-05-29",
+      "workedHours": 7.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "22a82bde-2a8e-4da4-953f-1d1160387660",
+      "userId": "45",
+      "workedDate": "2024-05-28",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "3a16737e-243c-4c83-ab8f-eb91596b9948",
+      "userId": "45",
+      "workedDate": "2024-05-27",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "c5ae8aba-773c-4325-8667-aee5b0a56d79",
+      "userId": "45",
+      "workedDate": "2024-05-24",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "891f0e83-1b74-4714-b613-a285f25a2191",
+      "userId": "45",
+      "workedDate": "2024-05-23",
+      "workedHours": 1.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "17",
+        "description": "Health care hour"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "9e81014a-ed68-4fdb-88ad-8605547e7da8",
+      "userId": "45",
+      "workedDate": "2024-05-23",
+      "workedHours": 6.25,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "e552ae59-a231-47a9-b1e2-fb52eb70591f",
+      "userId": "45",
+      "workedDate": "2024-05-23",
+      "workedHours": 0.75,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "2f90466a-7f92-4ad6-834b-eacc5da90a71",
+      "userId": "45",
+      "workedDate": "2024-05-22",
+      "workedHours": 0.25,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "c7bd5611-6c49-4561-8e0c-93f97fc1f19f",
+      "userId": "45",
+      "workedDate": "2024-05-22",
+      "workedHours": 7.75,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "2e5ae63c-0a28-4a4c-8e2e-c162f5f932d6",
+      "userId": "45",
+      "workedDate": "2024-05-21",
+      "workedHours": 0.25,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "908",
+        "description": "External consulting - to be invoiced"
+      },
+      "service": {
+        "id": "3",
+        "description": "Programming"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "337e6ad8-c7f0-4358-bddf-fa5f08927dca",
+      "userId": "45",
+      "workedDate": "2024-05-21",
+      "workedHours": 7.25,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "cae6bf60-28e3-434f-9d46-59203ca32eba",
+      "userId": "45",
+      "workedDate": "2024-05-21",
+      "workedHours": 0.5,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "88fe5335-8e5e-4968-a8b1-6699df432ed9",
+      "userId": "45",
+      "workedDate": "2024-05-20",
+      "workedHours": 7.25,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "c68c5374-68b7-463a-917f-c698b0bd34ec",
+      "userId": "45",
+      "workedDate": "2024-05-20",
+      "workedHours": 0.75,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "908",
+        "description": "External consulting - to be invoiced"
+      },
+      "service": {
+        "id": "3",
+        "description": "Programming"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "36864962-e6ef-406b-85e2-4a895c9c7bcc",
+      "userId": "45",
+      "workedDate": "2024-05-17",
+      "workedHours": 5.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "907853b0-632b-4d4f-b6c3-8db131cf3f26",
+      "userId": "45",
+      "workedDate": "2024-05-17",
+      "workedHours": 3.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "908",
+        "description": "External consulting - to be invoiced"
+      },
+      "service": {
+        "id": "3",
+        "description": "Programming"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "1f77aa23-7e63-4a7e-99ef-769bf8d72127",
+      "userId": "45",
+      "workedDate": "2024-05-16",
+      "workedHours": 1.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "8c6f2a02-bf5a-40ca-b5a2-af70ca09d1a3",
+      "userId": "45",
+      "workedDate": "2024-05-16",
+      "workedHours": 0.5,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "NVX",
+        "name": "Flex time + (Flextid +)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "ad3869e2-6a0d-405d-a201-83d0a85ca07f",
+      "userId": "45",
+      "workedDate": "2024-05-16",
+      "workedHours": 7.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "97e2f2df-9f86-4851-b88c-984224085027",
+      "userId": "45",
+      "workedDate": "2024-05-15",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "ecc103a1-574c-4606-a736-6a70334c568e",
+      "userId": "45",
+      "workedDate": "2024-05-15",
+      "workedHours": 0.5,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "NVX",
+        "name": "Flex time + (Flextid +)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "5d089fae-9ac1-4ae6-80ac-709684279789",
+      "userId": "45",
+      "workedDate": "2024-05-14",
+      "workedHours": 7.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "9ed51a59-069f-4c80-9736-9a5b92529814",
+      "userId": "45",
+      "workedDate": "2024-05-14",
+      "workedHours": 1.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": null,
+      "project": null,
+      "service": null,
+      "registrationCode": {
+        "code": "FRX",
+        "name": "Flex time - (Flextid -)",
+        "type": "ABSENCE"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "5e991460-7297-4dbc-9bf0-6603012edbd9",
+      "userId": "45",
+      "workedDate": "2024-05-13",
+      "workedHours": 7.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "bf4eca12-8e66-488e-98ec-6376249c9211",
+      "userId": "45",
+      "workedDate": "2024-05-13",
+      "workedHours": 1.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "21",
+        "description": "Management"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "5bba545e-ecf1-4c32-9faa-549ae97a8cd8",
+      "userId": "45",
+      "workedDate": "2024-05-10",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "52",
+        "description": "Work free friday"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "f917d12e-12fa-447b-b84b-0298e07ec855",
+      "userId": "45",
+      "workedDate": "2024-05-08",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "ef01cb46-6055-4271-b62d-348f28e863c2",
+      "userId": "45",
+      "workedDate": "2024-05-07",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "a89ce28c-f81e-4003-bc0b-7ee61eb1f429",
+      "userId": "45",
+      "workedDate": "2024-05-06",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "52853da1-e346-4ae9-b807-dfc85b6bf85a",
+      "userId": "45",
+      "workedDate": "2024-05-03",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    },
+    {
+      "id": "c53f8f96-7fef-4ac5-92ad-703eb93ecf9d",
+      "userId": "45",
+      "workedDate": "2024-05-02",
+      "workedHours": 8.0,
+      "chargeHours": 0.0,
+      "startTime": null,
+      "stopTime": null,
+      "nonInvoiceable": false,
+      "note": null,
+      "invoiceText": null,
+      "customer": {
+        "id": "208",
+        "name": "Turborilla"
+      },
+      "project": {
+        "id": "400",
+        "description": "Rally Clash"
+      },
+      "service": {
+        "id": "1",
+        "description": "Producer"
+      },
+      "registrationCode": {
+        "code": "TID",
+        "name": "Normal working time (Arbetstid)",
+        "type": "WORK"
+      },
+      "childId": null,
+      "documentId": null,
+      "documentType": null,
+      "invoiceBasisId": null,
+      "unitCost": 0.0,
+      "unitPrice": 0.0
+    }
+  ]
+}

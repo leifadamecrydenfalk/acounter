@@ -1,4 +1,4 @@
-// src/fortnox.rs
+// src/fortnox_client.rs
 
 use anyhow::{anyhow, bail, Context, Result as AnyhowResult}; // Keep anyhow for internal use if needed
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Client, Method, RequestBuilder, StatusCode};
+use serde::de::Error;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -93,7 +94,7 @@ pub struct ScheduleTime {
     pub employee_id: String,
     pub date: String,
     pub schedule_id: Option<String>,
-    pub hours: String,
+    pub hours: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,6 +102,28 @@ pub struct ScheduleTime {
 pub struct ScheduleTimeResponse {
     #[serde(rename = "ScheduleTime")]
     pub schedule_time: ScheduleTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct EmployeeDatedSchedule {
+    // Assuming 'Date' is the effective date for this schedule ID.
+    // The exact field name might need to be verified from an actual API response if not 'Date'.
+    pub date: String,
+    #[serde(rename = "ScheduleId")] // Ensure casing matches API response
+    pub schedule_id: String,
+    // Add other fields if present in the actual API response for DatedSchedule
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct EmployeeDatedWage {
+    pub date: String,
+    #[serde(rename = "MonthlySalary")]
+    pub monthly_salary: Option<String>, // Using Option as they are "pairs"
+    #[serde(rename = "HourlyPay")]
+    pub hourly_pay: Option<String>,
+    // Add other fields if present
 }
 
 // Employee API types
@@ -114,12 +137,17 @@ pub struct EmployeeListItem {
     #[serde(rename = "PersonalIdentityNumber")]
     pub personal_identity_number: Option<String>,
     #[serde(rename = "FirstName")]
-    pub first_name: Option<String>,
+    pub first_name: Option<String>, // Docs say required, but using Option for robustness
     #[serde(rename = "LastName")]
-    pub last_name: Option<String>,
+    pub last_name: Option<String>, // Docs say required
     #[serde(rename = "FullName")]
     pub full_name: Option<String>,
-    pub email: Option<String>,
+    // email is marked as required in docs, make sure it aligns
+    // If it's truly always present, make it `String` not `Option<String>`
+    // For now, let's assume the provided struct was for a list where it might be optional
+    // but for a single employee, it might be required.
+    // The doc provided says "Email required string" for the list item.
+    pub email: String, // Changed to String based on "required" in docs
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,6 +236,26 @@ pub struct ArticleListItem {
 #[serde(rename_all = "PascalCase")]
 pub struct ArticleListResponse {
     pub articles: Vec<ArticleListItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct FortnoxMe {
+    // Using Option<> for robustness, adjust if fields are guaranteed non-null
+    pub email: Option<String>,
+    /// The 'Id' field is the same as "userId"
+    pub id: String,
+    pub locale: Option<String>,
+    pub name: Option<String>,
+    #[serde(rename = "SysAdmin")] // Ensure correct mapping if PascalCase doesn't suffice
+    pub sys_admin: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct FortnoxMeWrap {
+    #[serde(rename = "MeInformation")] // Match the exact property name from the schema
+    pub me_information: FortnoxMe,
 }
 
 // --- Define Specific Fortnox Error Type ---
@@ -303,27 +351,27 @@ impl Default for FortnoxConfig {
 
 // OAuth token response from Fortnox (remains the same)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct TokenResponse {
-    access_token: String,
-    refresh_token: String,
-    expires_in: u64,
-    token_type: String,
-    scope: String,
+pub struct TokenResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_in: u64,
+    pub token_type: String,
+    pub scope: String,
 }
 
 // Structure for storing token data persistently (remains the same)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct StoredTokenData {
-    access_token: String,
-    refresh_token: String,
-    expires_at_unix_secs: u64,
-    scope: String,
-    token_type: String,
+pub struct StoredTokenData {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_at_unix_secs: u64,
+    pub scope: String,
+    pub token_type: String,
 }
 
 impl StoredTokenData {
     // Updated to return Result<_, FortnoxError>
-    fn is_expired(&self, buffer_secs: u64) -> Result<bool, FortnoxError> {
+    pub fn is_expired(&self, buffer_secs: u64) -> Result<bool, FortnoxError> {
         let now_unix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|e| {
@@ -787,15 +835,18 @@ impl FortnoxClient {
             .header(CONTENT_TYPE, "application/json"))
     }
 
-    // Updated to return Result<_, FortnoxError>
-    pub async fn send_and_deserialize<T: DeserializeOwned>(
+    pub async fn send_and_deserialize<T: DeserializeOwned + Serialize>(
+        // Added Serialize bound here for caching, but not strictly needed for this debug
         &self,
         request_builder: RequestBuilder,
-        context_msg: &str, // Keep context message for logging clarity
+        context_msg: &str,
     ) -> Result<T, FortnoxError> {
         let request = match request_builder.build() {
             Ok(req) => req,
-            Err(e) => return Err(FortnoxError::Request(e)), // Map build error
+            Err(e) => {
+                error!("Request build failed for '{}': {}", context_msg, e); // Log build error explicitly
+                return Err(FortnoxError::Request(e));
+            }
         };
         let request_url = request.url().to_string();
         debug!(
@@ -803,48 +854,115 @@ impl FortnoxClient {
             context_msg, request_url
         );
 
-        let response = self.http_client.execute(request).await; // Maps reqwest::Error
+        let response_result = self.http_client.execute(request).await; // Execute returns Result
 
-        match response {
+        match response_result {
             Ok(resp) => {
                 let status = resp.status();
+                info!(
+                    "Received response for '{}' (URL: {}): Status={}",
+                    context_msg, request_url, status
+                );
+
                 if status.is_success() {
-                    // Maps serde_json::Error
-                    let data = resp.json::<T>().await?;
-                    debug!(
-                        "Successfully received and deserialized response for '{}'",
-                        context_msg
-                    );
-                    Ok(data)
-                } else if status == StatusCode::TOO_MANY_REQUESTS {
-                    warn!(
-                        "Rate limit exceeded for '{}' (URL: {})",
-                        context_msg, request_url
-                    );
-                    Err(FortnoxError::RateLimitExceeded)
+                    let response_bytes_result = resp.bytes().await;
+                    match response_bytes_result {
+                        Ok(bytes) => {
+                            // Attempt to log as text, handle non-UTF8
+                            match std::str::from_utf8(&bytes) {
+                                Ok(text) => {
+                                    debug!(
+                                        "Raw Success Response Body for '{}': {}",
+                                        context_msg, text
+                                    );
+                                    // Now try to deserialize from the bytes
+                                    match serde_json::from_slice::<T>(&bytes) {
+                                        Ok(data) => {
+                                            debug!(
+                                                "Successfully deserialized success response for '{}'",
+                                                context_msg
+                                            );
+                                            Ok(data)
+                                        }
+                                        Err(e) => {
+                                            error!(
+                                                "JSON deserialization failed for '{}' (URL: {}) from raw body: {}",
+                                                context_msg, request_url, e
+                                            );
+                                            // Return specific JSON error
+                                            Err(FortnoxError::Json(e))
+                                        }
+                                    }
+                                }
+                                Err(_) => {
+                                    warn!(
+                                        "Response body for '{}' is not valid UTF-8. Logging hex.",
+                                        context_msg
+                                    );
+                                    debug!(
+                                        "Raw Success Response Body (Hex) for '{}': {}",
+                                        context_msg,
+                                        hex::encode(&bytes)
+                                    );
+                                    // Still try to deserialize, might work if it's JSON despite non-UTF8 parts
+                                    match serde_json::from_slice::<T>(&bytes) {
+                                        Ok(data) => Ok(data), // Success despite non-UTF8? Unlikely but handle.
+                                        Err(e) => {
+                                            error!("JSON deserialization failed for '{}' (URL: {}) from non-UTF8 body: {}", context_msg, request_url, e);
+                                            Err(FortnoxError::Json(e))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!(
+                                "Failed to read response body bytes for '{}': {}",
+                                context_msg, e
+                            );
+                            Err(FortnoxError::Request(e)) // Reading body failed
+                        }
+                    }
                 } else {
+                    // Handle non-success status codes
                     let error_body = resp
                         .text()
                         .await
-                        .unwrap_or_else(|_| "Failed to read error body".to_string());
-                    warn!(
-                        "API error for '{}' (URL: {}): Status={}, Body={}",
-                        context_msg, request_url, status, error_body
+                        .unwrap_or_else(|e| format!("Failed to read error body: {}", e)); // Include read error
+
+                    // Log the raw error body for non-success status
+                    error!(
+                        "API Error Response: Status={}, Body='{}' for URL: {}",
+                        status, error_body, request_url
                     );
-                    // Try to parse for more detail
-                    let message = match serde_json::from_str::<FortnoxErrorPayload>(&error_body) {
-                        Ok(parsed) => parsed.error_information.message.unwrap_or(error_body),
-                        Err(_) => error_body,
-                    };
-                    Err(FortnoxError::ApiError { status, message })
+
+                    if status == StatusCode::TOO_MANY_REQUESTS {
+                        warn!(
+                            "Rate limit exceeded for '{}' (URL: {})",
+                            context_msg, request_url
+                        );
+                        Err(FortnoxError::RateLimitExceeded)
+                    } else {
+                        // Try to parse as FortnoxErrorPayload for a better message
+                        let message = match serde_json::from_str::<FortnoxErrorPayload>(&error_body)
+                        {
+                            Ok(parsed) => parsed
+                                .error_information
+                                .message
+                                .unwrap_or(error_body.clone()), // Clone error_body
+                            Err(_) => error_body, // Use raw body if parsing specific error fails
+                        };
+                        Err(FortnoxError::ApiError { status, message })
+                    }
                 }
             }
             Err(e) => {
+                // This catches errors before even getting a response (network, DNS, timeout etc.)
                 error!(
-                    "HTTP execution failed for '{}' (URL: {}): {}",
+                    "HTTP execution failed before receiving response for '{}' (URL: {}): {}",
                     context_msg, request_url, e
                 );
-                Err(FortnoxError::Request(e)) // Ensure reqwest errors are mapped
+                Err(FortnoxError::Request(e)) // This mapping is correct
             }
         }
     }
@@ -1024,13 +1142,11 @@ impl FortnoxClient {
             Ok(Some(cached_data)) => return Ok(cached_data),
             Ok(None) => { /* Cache miss or stale, continue to fetch */ }
             Err(e) => {
-                // Log cache load error but proceed to fetch from API
-                error!(
+                // Log cache load warning
+                warn!(
                     "Failed to load from cache for {} ({}): {}. Attempting API fetch.",
                     resource_type, context_msg, e
                 );
-                // Map to specific CacheError if needed, or just log and continue
-                // return Err(FortnoxError::CacheError(format!("Failed to load cache: {}", e)));
             }
         }
 
@@ -1061,9 +1177,8 @@ impl FortnoxClient {
         Ok(response_data)
     }
 
-    // --- API Methods (Update signatures and use FortnoxError) ---
+    // --- API Methods ---
 
-    // Updated to return Result<_, FortnoxError>
     pub async fn get_time_registrations(
         &self,
         from_date: &str,
@@ -1072,7 +1187,6 @@ impl FortnoxClient {
         customer_ids: Option<Vec<String>>,
         project_ids: Option<Vec<String>>,
     ) -> Result<Vec<DetailedRegistration>, FortnoxError> {
-        // ... (parameter setup logic remains the same) ...
         let mut query_vec: Vec<(String, String)> = vec![
             ("fromDate".to_string(), from_date.to_string()),
             ("toDate".to_string(), to_date.to_string()),
@@ -1095,7 +1209,9 @@ impl FortnoxClient {
             cache_params.insert(k.clone(), v.clone());
         } // Rebuild map for cache key
 
-        let endpoint = "/api/time/registrations-v2";
+        // The base URL for the time API is https://api.fortnox.se/api/time
+        // The specific endpoint path is /registrations-v2
+        let endpoint = "/registrations-v2";
         let base_url = Some(FORTNOX_TIME_API_URL);
 
         // Use get_with_cache which now returns FortnoxError
@@ -1108,6 +1224,28 @@ impl FortnoxClient {
             "Get Time Registrations V2", // Updated context
         )
         .await
+    }
+
+    /// Retrieves information about the currently authenticated user (based on the access token).
+    /// The `Id` field in the returned `FortnoxMe` struct corresponds to the `userId`.
+    pub async fn get_me(&self) -> Result<FortnoxMe, FortnoxError> {
+        let endpoint = "/me"; // Endpoint relative to the base API URL
+
+        // Fetch data using the generic get_with_cache method.
+        // The API returns a wrapped response, so we deserialize into FortnoxMeWrap first.
+        let response_wrapper: FortnoxMeWrap = self
+            .get_with_cache(
+                endpoint,
+                "me_information", // A unique identifier for caching this resource type
+                None,             // No specific resource ID for the /me endpoint
+                None,             // No query parameters for this endpoint
+                None,             // Use the default base URL (FORTNOX_API_BASE_URL)
+                "Get Me Information", // Context message for logging/errors
+            )
+            .await?; // Propagates FortnoxError on failure
+
+        // Extract the actual user information from the wrapper
+        Ok(response_wrapper.me_information)
     }
 
     // Updated to return Result<_, FortnoxError>
@@ -1156,9 +1294,6 @@ impl FortnoxClient {
             .await?;
         Ok(response.employee)
     }
-
-    // ... Implement similar changes for get_customers, get_customer, get_projects, get_project, get_articles, get_article ...
-    // Ensure they return Result<_, FortnoxError> and call get_with_cache
 
     // Get all customers
     pub async fn get_customers(&self) -> Result<CustomerListResponse, FortnoxError> {

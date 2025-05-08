@@ -1,3 +1,10 @@
+// --- Time Validation Module ---
+//
+// This module contains the core logic for validating time entries against employee schedules and rules.
+// It provides methods to validate mandatory fields, time balances, indirect allocations, and more.
+//
+// The module is designed to be used as a standalone system or integrated into a larger application.
+
 #![allow(dead_code)] // Allow unused code as this is a self-contained module example
 #![allow(unused_variables)] // Allow unused variables during development
 
@@ -150,34 +157,34 @@ mod rule_id {
 }
 
 // Service Codes
-const SERVICE_OTHER_INDIRECT: &str = "16";
-const SERVICE_WFF: &str = "52";
+pub const SERVICE_OTHER_INDIRECT: &str = "16";
+pub const SERVICE_WFF: &str = "52";
 
 // Registration Codes
-const REG_CODE_NORMAL: &str = "ARB";
-const REG_CODE_FLEX_PLUS: &str = "FLX+";
-const REG_CODE_FLEX_MINUS: &str = "FLX-";
-const REG_CODE_VACATION: &str = "SEM";
-const REG_CODE_SICK: &str = "SJK";
-const KNOWN_ABSENCE_CODES: [&str; 3] = [REG_CODE_FLEX_MINUS, REG_CODE_VACATION, REG_CODE_SICK];
+pub const REG_CODE_NORMAL: &str = "ARB";
+pub const REG_CODE_FLEX_PLUS: &str = "FLX+";
+pub const REG_CODE_FLEX_MINUS: &str = "FLX-";
+pub const REG_CODE_VACATION: &str = "SEM";
+pub const REG_CODE_SICK: &str = "SJK";
+pub const KNOWN_ABSENCE_CODES: [&str; 3] = [REG_CODE_FLEX_MINUS, REG_CODE_VACATION, REG_CODE_SICK];
 
-fn is_absence_code(reg_code: &str) -> bool {
+pub fn is_absence_code(reg_code: &str) -> bool {
     KNOWN_ABSENCE_CODES.contains(&reg_code)
 }
 
-fn is_worked_time_code(reg_code: &str) -> bool {
+pub fn is_worked_time_code(reg_code: &str) -> bool {
     reg_code == REG_CODE_NORMAL || reg_code == REG_CODE_FLEX_PLUS
 }
 
 // --- Core Data Structures ---
 
-type EmployeeId = String;
-type ProjectId = String;
-type ServiceId = String;
-type RegCode = String;
-type Year = i32;
-type MonthNum = u32; // 1-12
-type WeekNum = u32; // ISO week number (1-53)
+pub type EmployeeId = String;
+pub type ProjectId = String;
+pub type ServiceId = String;
+pub type RegCode = String;
+pub type Year = i32;
+pub type MonthNum = u32; // 1-12
+pub type WeekNum = u32; // ISO week number (1-53)
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EmployeeType {
@@ -187,26 +194,26 @@ pub enum EmployeeType {
 
 #[derive(Debug, Clone)]
 pub struct Employee {
-    id: EmployeeId,
-    name: String,
-    employee_type: EmployeeType,
-    main_project: ProjectId,
-    manager: Option<String>,
-    is_exempt_from_balance_rules: bool,
+    pub id: EmployeeId,
+    pub name: String,
+    pub employee_type: EmployeeType,
+    pub main_project: ProjectId,
+    pub manager: Option<String>,
+    pub is_exempt_from_balance_rules: bool,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TimeEntryData {
-    id: String,
-    emp_id: EmployeeId,
-    date: NaiveDate,
-    hours: Decimal,
-    reg_code: RegCode,
-    project: Option<ProjectId>,
-    customer: Option<String>,
-    service: Option<ServiceId>,
-    note: Option<String>,
-    full_day_flag: bool,
+    pub id: String,
+    pub emp_id: EmployeeId,
+    pub date: NaiveDate,
+    pub hours: Decimal,
+    pub reg_code: RegCode,
+    pub project: Option<ProjectId>,
+    pub customer: Option<String>,
+    pub service: Option<ServiceId>,
+    pub note: Option<String>,
+    pub full_day_flag: bool,
 }
 
 impl TimeEntryData {
@@ -233,7 +240,7 @@ impl TimeEntryData {
 }
 
 // Helper to build entries in tests
-fn build_time_entry(
+pub fn build_time_entry(
     id: &str,
     emp_id: &str,
     date: NaiveDate,
@@ -258,10 +265,10 @@ fn d(date_str: &str) -> NaiveDate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct CompletionStatusKey {
-    employee_id: EmployeeId,
-    year: Year,
-    period_num: u32, // Week or Month number
+pub struct CompletionStatusKey {
+    pub employee_id: EmployeeId,
+    pub year: Year,
+    pub period_num: u32, // Week or Month number
 }
 
 #[derive(Debug, Clone)]
@@ -549,13 +556,13 @@ pub struct MockNotificationService {
 }
 
 impl MockNotificationService {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             notifications_sent: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
-    fn send(&self, notification: Notification) {
+    pub fn send(&self, notification: Notification) {
         self.notifications_sent
             .lock()
             .unwrap()
@@ -564,16 +571,16 @@ impl MockNotificationService {
         debug!("Mock Notification Sent: {:?}", notification);
     }
 
-    fn get_sent_notifications(&self) -> std::sync::MutexGuard<'_, Vec<Notification>> {
+    pub fn get_sent_notifications(&self) -> std::sync::MutexGuard<'_, Vec<Notification>> {
         self.notifications_sent.lock().unwrap()
     }
 
-    fn clear(&self) {
+    pub fn clear(&self) {
         self.notifications_sent.lock().unwrap().clear();
     }
 
     // Assertion helpers provided in tests
-    fn expect_notification(&self, criteria: NotificationCriteria) {
+    pub fn expect_notification(&self, criteria: NotificationCriteria) {
         assert!(
             self.get_sent_notifications()
                 .iter()
@@ -584,7 +591,7 @@ impl MockNotificationService {
         );
     }
 
-    fn expect_no_notification(&self, criteria: NotificationCriteria) {
+    pub fn expect_no_notification(&self, criteria: NotificationCriteria) {
         assert!(
             !self
                 .get_sent_notifications()
@@ -596,7 +603,7 @@ impl MockNotificationService {
         );
     }
 
-    fn count_notifications(&self, criteria: NotificationCriteria) -> usize {
+    pub fn count_notifications(&self, criteria: NotificationCriteria) -> usize {
         self.get_sent_notifications()
             .iter()
             .filter(|n| criteria.matches(n))
@@ -606,29 +613,29 @@ impl MockNotificationService {
 
 #[derive(Clone)]
 pub struct TestClock {
-    current_time: Arc<Mutex<NaiveDateTime>>,
+    pub current_time: Arc<Mutex<NaiveDateTime>>,
 }
 
 impl TestClock {
-    fn new(datetime_str: &str) -> Self {
+    pub fn new(datetime_str: &str) -> Self {
         let dt = NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S")
             .expect("Failed to parse datetime string in TestClock::new");
         Self {
             current_time: Arc::new(Mutex::new(dt)),
         }
     }
-    fn set_time(&mut self, datetime_str: &str) {
+    pub fn set_time(&mut self, datetime_str: &str) {
         *self.current_time.lock().unwrap() =
             NaiveDateTime::parse_from_str(datetime_str, "%Y-%m-%d %H:%M:%S")
                 .expect("Failed to parse datetime string in TestClock::set_time");
     }
-    fn advance(&mut self, duration: Duration) {
+    pub fn advance(&mut self, duration: Duration) {
         *self.current_time.lock().unwrap() += duration;
     }
-    fn now_dt(&self) -> NaiveDateTime {
+    pub fn now_dt(&self) -> NaiveDateTime {
         *self.current_time.lock().unwrap()
     }
-    fn now_date(&self) -> NaiveDate {
+    pub fn now_date(&self) -> NaiveDate {
         self.current_time.lock().unwrap().date()
     }
 }
@@ -637,18 +644,18 @@ impl TestClock {
 
 #[derive(Clone)]
 pub struct TimeReportingSystem {
-    clock: TestClock,
-    notification_svc: MockNotificationService,
-    employees: Arc<Mutex<HashMap<EmployeeId, Employee>>>,
-    time_entries: Arc<Mutex<HashMap<(EmployeeId, NaiveDate), Vec<TimeEntryData>>>>,
-    schedules: Arc<Mutex<HashMap<(EmployeeId, NaiveDate), Decimal>>>,
-    holidays: Arc<Mutex<HashSet<NaiveDate>>>,
-    wff_dates: Arc<Mutex<HashSet<NaiveDate>>>,
-    week_completion_status: Arc<Mutex<HashSet<(EmployeeId, Year, WeekNum)>>>,
-    month_completion_status: Arc<Mutex<HashSet<(EmployeeId, Year, MonthNum)>>>,
-    month_end_error_flags: Arc<Mutex<HashMap<(EmployeeId, Year, MonthNum), NaiveDate>>>,
-    validation_errors: Arc<Mutex<HashMap<(EmployeeId, NaiveDate), Vec<ValidationError>>>>,
-    allocation_basis_cache: AllocationBasisCache,
+    pub clock: TestClock,
+    pub notification_svc: MockNotificationService,
+    pub employees: Arc<Mutex<HashMap<EmployeeId, Employee>>>,
+    pub time_entries: Arc<Mutex<HashMap<(EmployeeId, NaiveDate), Vec<TimeEntryData>>>>,
+    pub schedules: Arc<Mutex<HashMap<(EmployeeId, NaiveDate), Decimal>>>,
+    pub holidays: Arc<Mutex<HashSet<NaiveDate>>>,
+    pub wff_dates: Arc<Mutex<HashSet<NaiveDate>>>,
+    pub week_completion_status: Arc<Mutex<HashSet<(EmployeeId, Year, WeekNum)>>>,
+    pub month_completion_status: Arc<Mutex<HashSet<(EmployeeId, Year, MonthNum)>>>,
+    pub month_end_error_flags: Arc<Mutex<HashMap<(EmployeeId, Year, MonthNum), NaiveDate>>>,
+    pub validation_errors: Arc<Mutex<HashMap<(EmployeeId, NaiveDate), Vec<ValidationError>>>>,
+    pub allocation_basis_cache: AllocationBasisCache,
 }
 
 impl TimeReportingSystem {
@@ -1006,7 +1013,7 @@ impl TimeReportingSystem {
     // --- Validation Logic ---
 
     /// Validates all rules for a given day. Returns a list of errors found.
-    fn validate_day(
+    pub fn validate_day(
         &self,
         employee_id: &str,
         date: NaiveDate,
@@ -1125,7 +1132,7 @@ impl TimeReportingSystem {
 
     // --- Individual Rule Validation Functions ---
 
-    fn validate_mandatory_fields(
+    pub fn validate_mandatory_fields(
         &self,
         emp: &Employee,
         entry: &TimeEntryData,
@@ -1258,7 +1265,7 @@ impl TimeReportingSystem {
         errors
     }
 
-    fn validate_time_balance(
+    pub fn validate_time_balance(
         &self,
         date: NaiveDate,
         entries: &[TimeEntryData],
@@ -1339,7 +1346,7 @@ impl TimeReportingSystem {
         errors
     }
 
-    fn validate_foreign_holiday_note(&self, entry: &TimeEntryData) -> Vec<ValidationError> {
+    pub fn validate_foreign_holiday_note(&self, entry: &TimeEntryData) -> Vec<ValidationError> {
         let mut errors = Vec::new();
         // Simple check: Service 16 used, not a standard absence code -> requires note.
         // Assumes employee is foreign (checked before calling this function).
@@ -1363,7 +1370,7 @@ impl TimeReportingSystem {
         errors
     }
 
-    fn validate_absence_project(
+    pub fn validate_absence_project(
         &self,
         emp: &Employee,
         entry: &TimeEntryData,
@@ -1387,7 +1394,7 @@ impl TimeReportingSystem {
         errors
     }
 
-    fn validate_vacation_full_day(
+    pub fn validate_vacation_full_day(
         &self,
         entry: &TimeEntryData,
         schedule_hours: Decimal,
@@ -1413,7 +1420,7 @@ impl TimeReportingSystem {
     }
 
     /// Validates indirect time (Service 16), Flex- time, and WFF base time (Service 52) allocation.
-    fn validate_indirect_allocation(
+    pub fn validate_indirect_allocation(
         &self,
         emp: &Employee,
         entry: &TimeEntryData,
@@ -1527,7 +1534,7 @@ impl TimeReportingSystem {
         errors
     }
 
-    fn validate_wff_rules(
+    pub fn validate_wff_rules(
         &self,
         emp: &Employee,
         date: NaiveDate,
@@ -1647,7 +1654,7 @@ impl TimeReportingSystem {
 
     // --- Scheduled Check Logic ---
 
-    fn check_weekly_completion(&self, today: NaiveDate, current_hour: u32) {
+    pub fn check_weekly_completion(&self, today: NaiveDate, current_hour: u32) {
         // Guideline: Reminder Monday morning/forenoon (< 12) if prev week incomplete.
         if today.weekday() == Weekday::Mon && current_hour < 12 {
             let prev_week_date = today
@@ -1725,7 +1732,7 @@ impl TimeReportingSystem {
         }
     }
 
-    fn check_pending_month_end_errors(&self, today: NaiveDate) {
+    pub fn check_pending_month_end_errors(&self, today: NaiveDate) {
         // Guideline: If month completion failed yesterday (flag exists and date < today)
         // and month is *still* not complete, notify manager.
         let mut notifications_to_send = Vec::new();
@@ -1779,7 +1786,7 @@ impl TimeReportingSystem {
 
     // --- Helper Methods ---
 
-    fn get_employee(&self, employee_id: &str) -> Result<Employee> {
+    pub fn get_employee(&self, employee_id: &str) -> Result<Employee> {
         // Added debug logging on lookup miss
         self.employees
             .lock()
@@ -1796,7 +1803,7 @@ impl TimeReportingSystem {
 
     /// Gets schedule hours, returning 0 for holidays (Turborilla) or non-scheduled types.
     /// Returns Err wrapping ValidationErrorReason::MissingSchedule if schedule is expected but not configured.
-    fn get_schedule_hours(&self, emp: &Employee, date: NaiveDate) -> Result<Decimal> {
+    pub fn get_schedule_hours(&self, emp: &Employee, date: NaiveDate) -> Result<Decimal> {
         debug!("Getting schedule hours for Emp={}, Date={}", emp.id, date);
         if emp.employee_type == EmployeeType::Foreign {
             debug!("Foreign employee, schedule is 0.");
@@ -1838,16 +1845,16 @@ impl TimeReportingSystem {
         }
     }
 
-    fn is_swedish_holiday(&self, date: NaiveDate) -> bool {
+    pub fn is_swedish_holiday(&self, date: NaiveDate) -> bool {
         self.holidays.lock().unwrap().contains(&date)
     }
 
-    fn is_wff(&self, date: NaiveDate) -> bool {
+    pub fn is_wff(&self, date: NaiveDate) -> bool {
         self.wff_dates.lock().unwrap().contains(&date)
     }
 
     /// Determines if a day is considered a working day requiring time entries/schedule.
-    fn is_workday(&self, emp: &Employee, date: NaiveDate) -> bool {
+    pub fn is_workday(&self, emp: &Employee, date: NaiveDate) -> bool {
         let weekday = date.weekday();
         if weekday == Weekday::Sat || weekday == Weekday::Sun {
             return false;
@@ -1862,7 +1869,7 @@ impl TimeReportingSystem {
     }
 
     /// Iterates over days in a month that are considered workdays for the employee.
-    fn iterate_work_days_in_month<'a>(
+    pub fn iterate_work_days_in_month<'a>(
         &'a self,
         emp: &'a Employee,
         year: i32,
@@ -1897,7 +1904,7 @@ impl TimeReportingSystem {
     /// Finds the first adjacent workday (previous or next, up to 7 days away)
     /// that has absence covering the *full* schedule for that day.
     /// Returns Ok(Some(date)) if found, Ok(None) if not found, Err on internal error.
-    fn find_adjacent_full_absence_day(
+    pub fn find_adjacent_full_absence_day(
         &self,
         emp: &Employee,
         date: NaiveDate,
@@ -1946,7 +1953,7 @@ impl TimeReportingSystem {
     }
 
     // Helper for find_adjacent_full_absence_day
-    fn find_adjacent_workday_with_full_absence(
+    pub fn find_adjacent_workday_with_full_absence(
         &self,
         emp: &Employee,
         start_date: NaiveDate,
@@ -1995,8 +2002,7 @@ impl TimeReportingSystem {
 
     /// Checks if a given day has absence entries covering the full schedule hours,
     /// or has a full_day absence entry. Returns Err if schedule cannot be determined when needed.
-
-    fn check_day_for_full_absence(&self, emp: &Employee, date: NaiveDate) -> Result<bool> {
+    pub fn check_day_for_full_absence(&self, emp: &Employee, date: NaiveDate) -> Result<bool> {
         // Get entries first
         let entries_opt = self
             .time_entries

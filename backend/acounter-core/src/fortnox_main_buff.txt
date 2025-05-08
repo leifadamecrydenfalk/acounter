@@ -1,0 +1,527 @@
+
+    // // --- BEGIN TIME VALIDATION SECTION FOR PETER (MAY 2024) ---
+    // info!("--- Starting Time Validation for Peter (Employee ID: 1) for May 2024 ---");
+    // let employee_id_to_validate = "1";
+    // let year_to_validate = 2024;
+    // let month_to_validate = 5u32; // May
+
+    // let validation_clock = TestClock::new("2024-06-01 10:00:00"); // Or current time
+    // let validation_notification_svc = MockNotificationService::new();
+    // let mut time_reporting_system = TimeReportingSystem::new(
+    //     validation_clock.clone(),
+    //     validation_notification_svc.clone(),
+    // );
+
+    // // Configure Employee "1" Profile (fetch or hardcode)
+    // match state
+    //     .fortnox_client
+    //     .get_employee(employee_id_to_validate)
+    //     .await
+    // {
+    //     Ok(emp_details) => {
+    //         time_reporting_system.configure_employee(
+    //             employee_id_to_validate,
+    //             emp_details.full_name.as_deref().unwrap_or("Peter P."),
+    //             EmployeeType::Turborilla, // Assuming Peter is Turborilla
+    //             "P700",                   // Assuming Peter's main project is P700 (needs config)
+    //             Some("MANAGER_ID_PETER"), // Example manager ID (needs config)
+    //             false,                    // Assuming not exempt from balance rules
+    //         );
+    //         info!(
+    //             "Configured employee profile for {}: {}",
+    //             employee_id_to_validate,
+    //             emp_details.full_name.as_deref().unwrap_or("N/A")
+    //         );
+    //     }
+    //     Err(e) => {
+    //         error!(
+    //             "Failed to get employee details for {}: {}. Using defaults.",
+    //             employee_id_to_validate, e
+    //         );
+    //         time_reporting_system.configure_employee(
+    //             employee_id_to_validate,
+    //             "Peter P. (Default)",
+    //             EmployeeType::Turborilla,
+    //             "P700",
+    //             Some("MANAGER_ID_PETER"),
+    //             false,
+    //         );
+    //     }
+    // }
+
+    // // --- Fetch and Save Test Employee Data (existing) ---
+    // let test_employee_id = "1"; // Peter Id
+    // match state.fortnox_client.get_employee(&test_employee_id).await {
+    //     Ok(employee_data) => {
+    //         info!(
+    //             "Successfully fetched data for employee ID: {}",
+    //             test_employee_id
+    //         );
+    //         let output_file_path = PathBuf::from("employee_data.json");
+    //         match serde_json::to_string_pretty(&employee_data) {
+    //             Ok(json_string) => match fs::write(&output_file_path, json_string) {
+    //                 Ok(_) => {
+    //                     info!("Successfully saved employee data to {:?}", output_file_path)
+    //                 }
+    //                 Err(e) => error!(
+    //                     "Failed to write employee data to {:?}: {}",
+    //                     output_file_path, e
+    //                 ),
+    //             },
+    //             Err(e) => error!(
+    //                 "Failed to serialize employee data for ID {}: {}",
+    //                 test_employee_id, e
+    //             ),
+    //         }
+    //     }
+    //     Err(e) => {
+    //         error!(
+    //         "Failed to fetch employee data for ID {}: {}. Ensure token is valid or re-authorize.",
+    //         test_employee_id, e
+    //     );
+    //     }
+    // }
+    // // --- End Fetch and Save Test Employee Data ---
+
+    // {
+    //     // --- BEGIN TIME VALIDATION SECTION FOR PETER (MAY 2024) ---
+    //     info!("--- Starting Time Validation for Peter (Employee ID: 1) for May 2024 ---");
+
+    //     let employee_id_to_validate = "1";
+    //     let year_to_validate = 2024;
+    //     let month_to_validate = 5u32; // May
+
+    //     // 1. Initialize TimeReportingSystem
+    //     // Set clock to e.g., June 1st, 2024 for month-end checks
+    //     let validation_clock = TestClock::new("2024-06-01 10:00:00");
+    //     let validation_notification_svc = MockNotificationService::new();
+    //     let mut time_reporting_system = TimeReportingSystem::new(
+    //         validation_clock.clone(),
+    //         validation_notification_svc.clone(),
+    //     );
+
+    //     // 2. Configure Employee "1" Profile
+    //     match state
+    //         .fortnox_client
+    //         .get_employee(employee_id_to_validate)
+    //         .await
+    //     {
+    //         Ok(emp_details) => {
+    //             time_reporting_system.configure_employee(
+    //                 employee_id_to_validate,
+    //                 emp_details.full_name.as_deref().unwrap_or("Peter P."),
+    //                 EmployeeType::Turborilla, // Assuming Peter is Turborilla
+    //                 "P700", // Assuming Peter's main project is P700 (needs config)
+    //                 Some("MANAGER_ID_PETER"), // Example manager ID (needs config)
+    //                 false,  // Assuming not exempt from balance rules
+    //             );
+    //             info!(
+    //                 "Configured employee profile for {}: {}",
+    //                 employee_id_to_validate,
+    //                 emp_details.full_name.as_deref().unwrap_or("N/A")
+    //             );
+    //         }
+    //         Err(e) => {
+    //             error!(
+    //                 "Failed to get employee details for {}: {}. Skipping validation.",
+    //                 employee_id_to_validate, e
+    //             );
+    //             // If you want to stop, return Err(e.into());
+    //             // For this example, we'll just log and the validation will likely fail later.
+    //         }
+    //     }
+
+    //     // 3. Configure Schedule for May 2024
+    //     let schedule_file_path = format!(
+    //         "peter_{}_{}_schedule.json",
+    //         year_to_validate, month_to_validate
+    //     );
+    //     match fs::read_to_string(&schedule_file_path) {
+    //         Ok(schedule_json_str) => {
+    //             match serde_json::from_str::<Vec<fortnox_client::ScheduleTime>>(&schedule_json_str)
+    //             {
+    //                 Ok(parsed_schedules) => {
+    //                     for schedule_entry in parsed_schedules {
+    //                         if schedule_entry.employee_id == employee_id_to_validate {
+    //                             let date =
+    //                                 NaiveDate::parse_from_str(&schedule_entry.date, "%Y-%m-%d")
+    //                                     .context("Parsing schedule date failed")?;
+    //                             let hours =
+    //                                 Decimal::from_f64(schedule_entry.hours).ok_or_else(|| {
+    //                                     anyhow::anyhow!("Invalid f64 for schedule hours")
+    //                                 })?;
+    //                             time_reporting_system.configure_schedule_hours(
+    //                                 employee_id_to_validate,
+    //                                 date,
+    //                                 hours,
+    //                             );
+    //                         }
+    //                     }
+    //                     info!(
+    //                         "Successfully configured May 2024 schedule for Peter from file: {}",
+    //                         schedule_file_path
+    //                     );
+    //                 }
+    //                 Err(e) => {
+    //                     error!("Failed to parse schedule JSON from {}: {}. Schedule data might be incomplete.", schedule_file_path, e);
+    //                 }
+    //             }
+    //         }
+    //         Err(e) => {
+    //             error!(
+    //                 "Failed to read schedule file {}: {}. Schedule data will be missing for validation.",
+    //                 schedule_file_path, e
+    //             );
+    //         }
+    //     }
+
+    //     // 4. Fetch and Prepare Time Entries (Historical for Allocation + Current Month)
+    //     // Historical: Last week of April 2024 (e.g., April 22-28 for May 1st validation)
+    //     // Adjust these dates if your ISO week definition or allocation lookback is different
+    //     let from_date_prev_week = "2024-04-22";
+    //     let to_date_prev_week = "2024-04-28";
+    //     info!(
+    //         "Fetching historical time entries for allocation basis ({}-{})",
+    //         from_date_prev_week, to_date_prev_week
+    //     );
+    //     match state
+    //         .fortnox_client
+    //         .get_time_registrations(
+    //             from_date_prev_week,
+    //             to_date_prev_week,
+    //             Some(vec![employee_id_to_validate.to_string()]),
+    //             None,
+    //             None,
+    //         )
+    //         .await
+    //     {
+    //         Ok(prev_week_regs) => {
+    //             let mut trs_entries_map = time_reporting_system.time_entries.lock().unwrap();
+    //             for reg in prev_week_regs {
+    //                 let date = NaiveDate::parse_from_str(&reg.worked_date, "%Y-%m-%d")?;
+    //                 let hours = Decimal::from_f64(reg.worked_hours).unwrap_or_default(); // Consider error handling for NaN/Inf
+    //                 let entry = TimeEntryData {
+    //                     id: reg.id.clone(),
+    //                     emp_id: reg.user_id.clone(),
+    //                     date,
+    //                     hours,
+    //                     reg_code: reg.registration_code.code.clone(),
+    //                     project: reg.project.map(|p| p.id.clone()),
+    //                     customer: reg.customer.map(|c| c.id.clone()), // Or name, depending on needs
+    //                     service: reg.service.map(|s| s.id.clone()),
+    //                     note: reg.note.clone(),
+    //                     full_day_flag: false, // Needs logic to infer if applicable
+    //                 };
+    //                 trs_entries_map
+    //                     .entry((entry.emp_id.clone(), entry.date))
+    //                     .or_default()
+    //                     .push(entry);
+
+    //                 // Invalidate cache for this historical week and the next (first week of May)
+    //                 let iso_week = date.iso_week();
+    //                 time_reporting_system
+    //                     .allocation_basis_cache
+    //                     .invalidate_cache_for_week(
+    //                         employee_id_to_validate,
+    //                         iso_week.year(),
+    //                         iso_week.week(),
+    //                     );
+    //                 if let Some(next_week_d) = date.checked_add_days(chrono::Days::new(7)) {
+    //                     let next_iso = next_week_d.iso_week();
+    //                     time_reporting_system
+    //                         .allocation_basis_cache
+    //                         .invalidate_cache_for_week(
+    //                             employee_id_to_validate,
+    //                             next_iso.year(),
+    //                             next_iso.week(),
+    //                         );
+    //                 }
+    //             }
+    //             info!(
+    //                 "Loaded {} historical entries for allocation basis.",
+    //                 trs_entries_map.values().map(|v| v.len()).sum::<usize>()
+    //             );
+    //         }
+    //         Err(e) => {
+    //             error!(
+    //                 "Failed to get historical time entries: {}. Allocation rules might fail.",
+    //                 e
+    //             );
+    //         }
+    //     }
+
+    //     // May 2024 Entries
+    //     let from_date_may = format!("{}-{:02}-01", year_to_validate, month_to_validate);
+    //     let last_day_of_may = NaiveDate::from_ymd_opt(year_to_validate, month_to_validate, 1)
+    //         .unwrap()
+    //         .with_month(month_to_validate + 1)
+    //         .unwrap_or_else(|| NaiveDate::from_ymd_opt(year_to_validate + 1, 1, 1).unwrap())
+    //         .pred_opt()
+    //         .unwrap();
+    //     let to_date_may = last_day_of_may.format("%Y-%m-%d").to_string();
+
+    //     info!(
+    //         "Fetching May {} time entries for Peter ({}-{})",
+    //         year_to_validate, from_date_may, to_date_may
+    //     );
+    //     let mut entries_by_day_may: HashMap<NaiveDate, Vec<TimeEntryData>> = HashMap::new();
+    //     match state
+    //         .fortnox_client
+    //         .get_time_registrations(
+    //             &from_date_may,
+    //             &to_date_may,
+    //             Some(vec![employee_id_to_validate.to_string()]),
+    //             None,
+    //             None,
+    //         )
+    //         .await
+    //     {
+    //         Ok(may_regs) => {
+    //             for reg in may_regs {
+    //                 let date = NaiveDate::parse_from_str(&reg.worked_date, "%Y-%m-%d")?;
+    //                 let hours = Decimal::from_f64(reg.worked_hours).unwrap_or_default();
+    //                 // Infer full_day_flag for vacation
+    //                 // This logic should ideally be robust, e.g. checking schedule hours if available
+    //                 let mut full_day_flag = false;
+    //                 if reg.registration_code.code == REG_CODE_VACATION {
+    //                     // A simple heuristic: if it's vacation and hours are significant (e.g. >= typical full day)
+    //                     // or if Fortnox somehow indicates a full day absence.
+    //                     // For now, let's assume if it's SEM and hours > 0, it implies full day intent.
+    //                     // The validator's R6 rule will check if it actually *is* a full day.
+    //                     if hours > dec!(0.0) {
+    //                         // This is a tricky part; the validation system's `validate_vacation_full_day`
+    //                         // will check against schedule. Here, we're just populating the input.
+    //                         // If Fortnox has a specific "full day absence" marker, use that.
+    //                         // Otherwise, this flag might be less useful if not set correctly from source.
+    //                         // Let's assume for SEM, if hours are reported, it's intended as full day
+    //                         // and the validator will confirm it matches schedule.
+    //                         // full_day_flag = true; // Or rely on validator to check hours against schedule
+    //                     }
+    //                 }
+
+    //                 let entry = TimeEntryData {
+    //                     id: reg.id,
+    //                     emp_id: reg.user_id,
+    //                     date,
+    //                     hours,
+    //                     reg_code: reg.registration_code.code,
+    //                     project: reg.project.map(|p| p.id),
+    //                     customer: reg.customer.map(|c| c.id),
+    //                     service: reg.service.map(|s| s.id),
+    //                     note: reg.note,
+    //                     full_day_flag, // Set based on logic above
+    //                 };
+    //                 entries_by_day_may.entry(date).or_default().push(entry);
+    //             }
+    //             info!(
+    //                 "Loaded {} time entries for Peter for May {}.",
+    //                 entries_by_day_may.values().map(|v| v.len()).sum::<usize>(),
+    //                 year_to_validate
+    //             );
+    //         }
+    //         Err(e) => {
+    //             error!(
+    //                 "Failed to get May {} time entries for Peter: {}. Validation will be based on no entries.",
+    //                 year_to_validate, e
+    //             );
+    //         }
+    //     }
+
+    //     // 5. Configure Holidays and WFF Dates for May 2024
+    //     info!("Configuring holidays for May 2024...");
+    //     time_reporting_system.configure_holiday(NaiveDate::from_ymd_opt(2024, 5, 1).unwrap()); // May Day
+    //     time_reporting_system.configure_holiday(NaiveDate::from_ymd_opt(2024, 5, 9).unwrap()); // Ascension Day
+    //                                                                                            // Add other Swedish public holidays in May 2024 if any.
+    //     info!("Configuring WFF dates for May 2024 (if any)...");
+    //     // time_reporting_system.configure_wff_date(NaiveDate::from_ymd_opt(2024, 5, 10).unwrap()); // Example
+    //     // Add actual WFF dates for May 2024 if applicable.
+
+    //     // 6. Perform Daily Validation for May 2024
+    //     let mut all_may_validation_errors: Vec<ValidationError> = Vec::new();
+    //     let mut current_validation_date =
+    //         NaiveDate::from_ymd_opt(year_to_validate, month_to_validate, 1).unwrap();
+    //     let end_validation_date = last_day_of_may; // Calculated earlier
+
+    //     info!(
+    //         "--- Starting daily validation for Peter for May {} ---",
+    //         year_to_validate
+    //     );
+    //     while current_validation_date <= end_validation_date {
+    //         if let Some(entries_for_day) = entries_by_day_may.get(&current_validation_date) {
+    //             info!(
+    //                 "Validating {} entries for {} on {}",
+    //                 entries_for_day.len(),
+    //                 employee_id_to_validate,
+    //                 current_validation_date
+    //             );
+    //             match time_reporting_system.record_time_entries_for_day(
+    //                 employee_id_to_validate,
+    //                 current_validation_date,
+    //                 entries_for_day.clone(), // Clone as record_time_entries_for_day might store it
+    //             ) {
+    //                 Ok(_) => info!(
+    //                     "Validation successful for {} on {}",
+    //                     employee_id_to_validate, current_validation_date
+    //                 ),
+    //                 Err(day_errors) => {
+    //                     error!(
+    //                         "Validation FAILED for {} on {}: {:?}",
+    //                         employee_id_to_validate, current_validation_date, day_errors
+    //                     );
+    //                     all_may_validation_errors.extend(day_errors);
+    //                 }
+    //             }
+    //         } else {
+    //             // Check if entries were expected on this day
+    //             let employees_guard = time_reporting_system.employees.lock().unwrap();
+    //             let emp_for_check = employees_guard.get(employee_id_to_validate).unwrap();
+    //             if time_reporting_system.is_workday(&emp_for_check, current_validation_date) {
+    //                 match time_reporting_system
+    //                     .get_schedule_hours(&emp_for_check, current_validation_date)
+    //                 {
+    //                     Ok(sched_h) if sched_h > dec!(0.0) => {
+    //                         warn!(
+    //                             "No time entries found for {} on scheduled workday {}. Expected {} hours.",
+    //                             employee_id_to_validate, current_validation_date, sched_h
+    //                         );
+    //                         // This will be caught by R9 in mark_month_as_complete if not addressed.
+    //                         // Optionally add a MissingTimeEntriesForDate error directly to all_may_validation_errors here for immediate feedback.
+    //                     }
+    //                     Ok(_) => { /* Schedule is 0, ok to have no entries */ }
+    //                     Err(e) => {
+    //                         warn!("Could not get schedule for {} on {}: {}. Cannot determine if entries were required.", employee_id_to_validate, current_validation_date, e);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         current_validation_date = current_validation_date.succ_opt().unwrap();
+    //     }
+
+    //     // 7. Attempt to Mark Month as Complete
+    //     info!(
+    //         "--- Attempting to mark May {} as complete for Peter ---",
+    //         year_to_validate
+    //     );
+    //     match time_reporting_system.mark_month_as_complete(
+    //         employee_id_to_validate,
+    //         year_to_validate,
+    //         month_to_validate,
+    //     ) {
+    //         Ok(_) => info!(
+    //             "Month May {} successfully marked complete for {}",
+    //             year_to_validate, employee_id_to_validate
+    //         ),
+    //         Err(month_errors) => {
+    //             error!(
+    //                 "Failed to mark May {} complete for {}: {:?}",
+    //                 year_to_validate, employee_id_to_validate, month_errors
+    //             );
+    //             all_may_validation_errors.extend(month_errors);
+    //         }
+    //     }
+
+    //     // 8. Log Summary
+    //     info!(
+    //         "--- Time Validation Summary for Peter (May {}) ---",
+    //         year_to_validate
+    //     );
+    //     if all_may_validation_errors.is_empty() {
+    //         info!(
+    //             "No validation errors found for Peter for May {}.",
+    //             year_to_validate
+    //         );
+    //     } else {
+    //         error!(
+    //             "Found {} validation error(s) for Peter for May {}:",
+    //             all_may_validation_errors.len(),
+    //             year_to_validate
+    //         );
+    //         for (i, error) in all_may_validation_errors.iter().enumerate() {
+    //             error!("  Error #{}: {:?}", i + 1, error);
+    //         }
+    //     }
+
+    //     let sent_notifications = validation_notification_svc.get_sent_notifications();
+    //     if sent_notifications.is_empty() {
+    //         info!("No notifications were sent during validation.");
+    //     } else {
+    //         info!(
+    //             "{} notification(s) were sent during validation:",
+    //             sent_notifications.len()
+    //         );
+    //         for (i, notification) in sent_notifications.iter().enumerate() {
+    //             info!("  Notification #{}: {:?}", i + 1, notification);
+    //         }
+    //     }
+    //     info!(
+    //         "--- End of Time Validation for Peter (May {}) ---",
+    //         year_to_validate
+    //     );
+    //     // --- END TIME VALIDATION SECTION ---
+    // }
+
+    // // --- Fetch and Save Peter's May 2024 Schedule ---
+    // let peters_employee_id = "1";
+    // let year_to_fetch = 2024;
+    // let month_to_fetch = 5; // May
+    // let schedule_output_filename =
+    //     format!("peter_{}_{}_schedule.json", year_to_fetch, month_to_fetch);
+
+    // // We need to pass the client Arc directly
+    // // The `fetch_and_save_employee_schedule_for_month` function returns Result<(), AppError>
+    // // The `?` operator will convert AppError into anyhow::Error if needed, or handle it if main returned Result<(), AppError>
+    // match fetch_and_save_employee_schedule_for_month(
+    //     &state.fortnox_client, // Pass the Arc<FortnoxClient>
+    //     peters_employee_id,
+    //     year_to_fetch,
+    //     month_to_fetch,
+    //     &schedule_output_filename,
+    // )
+    // .await
+    // {
+    //     Ok(_) => info!("Successfully processed schedule fetching for Peter for May 2024."),
+    //     Err(app_err) => {
+    //         // Log the AppError. If main returns anyhow::Result, this will propagate.
+    //         // If main needs to continue, we just log. For this example, let's propagate.
+    //         error!(
+    //             "Error fetching/saving Peter's May 2024 schedule: {:?}",
+    //             app_err
+    //         );
+    //         // If you want the whole app to terminate on this specific error:
+    //         // return Err(app_err.into()); // Convert AppError to anyhow::Error
+    //     }
+    // }
+    // // --- End Fetch and Save Peter's May 2024 Schedule ---
+
+
+
+
+send and deserialize sucess:
+
+                    // // Attempt to deserialize success body
+                    // match resp.json::<T>().await {
+                    //     Ok(data) => {
+                    //         debug!(
+                    //             "Successfully deserialized success response for '{}'",
+                    //             context_msg
+                    //         );
+                    //         Ok(data)
+                    //     }
+                    //     Err(e) => {
+                    //         error!(
+                    //             "JSON deserialization failed for '{}' (URL: {}) despite success status {}: {}",
+                    //             context_msg, request_url, status, e
+                    //         );
+                    //         // Map the error. reqwest::Error includes kind(), check if it's Json
+                    //         if e.is_decode() {
+                    //             // It's specifically a JSON decoding issue
+                    //             Err(FortnoxError::Json(serde_json::Error::custom(format!(
+                    //                 "Failed to decode JSON: {}",
+                    //                 e
+                    //             )))) // Wrap it
+                    //         } else {
+                    //             // Other reqwest error during body processing
+                    //             Err(FortnoxError::Request(e))
+                    //         }
+                    //     }
+                    // }

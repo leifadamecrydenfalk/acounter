@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "last_updated_unix_secs": 1746691725,
+    "resource_type": "schedule_time",
+    "resource_id": "1",
+    "query_params": {
+      "date": "2024-05-20"
+    }
+  },
+  "data": {
+    "ScheduleTime": {
+      "EmployeeId": "1",
+      "Date": "2024-05-20",
+      "ScheduleId": "HEL",
+      "Hours": 8.0
+    }
+  }
+}
